@@ -4,6 +4,9 @@ services:
     container_name: ew-pytorch-spark-poc
     runtime: nvidia
     volumes:
+      # Mount source code — edit on Windows, runs instantly in container
+      - .:/app
+      # Results output
       - ./results:/app/results
     environment:
       - PYSPARK_PYTHON=python
