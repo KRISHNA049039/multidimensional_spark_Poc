@@ -5,9 +5,13 @@ services:
     runtime: nvidia
     volumes:
       # Mount source code — edit on Windows, runs instantly in container
-      - .:/app
+      - D:\pyspark_torch_poc_dist\pytorch-spark-ew-poc:/pyspark_poc
       # Results output
-      - ./results:/app/results
+      - ./results:/pyspark_poc/results
+    ports:
+      - "4040:4040"
+      - "4041:4041"
+      - "8080:8080"
     environment:
       - PYSPARK_PYTHON=python
       - PYSPARK_DRIVER_PYTHON=python

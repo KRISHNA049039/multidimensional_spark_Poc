@@ -24,7 +24,7 @@ from models.ew_signal_model import (
 )
 
 
-def create_spark_session(app_name="EW_PyTorch_Inference", num_cores="*"):
+def create_spark_session(app_name="EW_PyTorch_Inference", num_cores="4"):
     """Create SparkSession - works in local and cluster mode."""
     builder = (
         SparkSession.builder
@@ -35,6 +35,7 @@ def create_spark_session(app_name="EW_PyTorch_Inference", num_cores="*"):
         .config("spark.driver.maxResultSize", "1g")
         .config("spark.network.timeout", "600s")
         .config("spark.executor.heartbeatInterval", "120s")
+        .config("spark.python.worker.reuse", "true")
         .config("spark.driver.extraJavaOptions",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED "
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "
@@ -102,9 +103,10 @@ def run_spark_rdd_inference(spark, features, labels, model,
         feat_chunk, label_chunk = bc_chunks[partition_idx].value
         n_samples = len(feat_chunk)
 
-        # Load model and move to device
+        # Load model — use CPU in local mode (threads share one GPU = deadlock)
+        # In cluster mode with separate processes, each executor uses its own GPU
         loaded_model = deserialize_model(bc_model.value)
-        device = _get_device()
+        device = torch.device("cpu")
         loaded_model = loaded_model.to(device)
         loaded_model.eval()
 
@@ -148,7 +150,15 @@ if __name__ == "__main__":
     model = create_trained_model()
     features, labels = generate_signal_dataset(10000)
 
-    _, t, tp, acc = run_spark_rdd_inference(spark, features, labels, model)
+    _, t, tp, acc = run_spark_rdd_inference(spark, features, labels, model, num_partitions=4)
     print(f"  Time: {t:.2f}s | Throughput: {tp:,.0f}/sec | Accuracy: {acc:.2%}")
+
+    print(f"\n  Spark UI running at http://localhost:4040")
+    print(f"  Press Ctrl+C to stop...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
     spark.stop()

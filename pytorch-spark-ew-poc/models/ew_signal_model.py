@@ -158,7 +158,8 @@ def generate_training_data(num_samples=10000, seed=42):
     Each signal class has distinct characteristics in IQ space:
     - CW Radar: Constant amplitude, single frequency
     - Pulsed Radar: Periodic bursts with specific PRIs
-    - FMCW: Linear frequency sweep patterns
+    - FMCW: Linear fr
+    equency sweep patterns
     - Phase Coded: BPSK/Barker code modulated
     - Noise Jammer: Wideband Gaussian noise
     - Spot Jammer: Narrowband interference
