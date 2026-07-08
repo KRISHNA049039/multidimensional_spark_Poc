@@ -1,0 +1,11 @@
+*.tar
+*.tar.gz
+*.tgz
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+results/raw_results.json
+*.pt
+*.pth
