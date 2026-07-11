@@ -50,8 +50,10 @@ Step-by-step guide to deploy the pytorch-spark-inference-platform on AWS EC2 ins
 | Worker (budget alt) | `g4dn.2xlarge` | 1× T4 16GB | 8 | 32 GB | 225 GB NVMe | ~$0.23 |
 | Worker (multi-GPU) | `g4dn.12xlarge` | 4× T4 16GB | 48 | 192 GB | 900 GB NVMe | ~$1.40 |
 
-**Recommended starting config:** 1× `t3.medium` master + 2× `g4dn.xlarge` workers.
-Total spot cost: ~$0.36/hr → a 2-hour test session costs under $1.
+**Recommended starting config:** 1× `t3.medium` master + 1–2× `g4dn.xlarge` workers.
+Works fine with a single worker (common due to GPU quota limits). Total spot cost with 1 worker: ~$0.20/hr.
+
+> **Note:** If you're limited to 1 GPU worker due to service quota limits, everything in this guide still applies — just launch 1 worker instead of 2 and reduce `--partitions` accordingly (4 is a good default for 1 worker with 4 vCPUs).
 
 ### Why g4dn?
 
@@ -147,6 +149,7 @@ aws ec2 run-instances \
 ### 4.2 Launch Workers (GPU)
 
 ```bash
+# Use --count 1 if limited by GPU quota, --count 2 if quota allows
 aws ec2 run-instances \
   --image-id <deep-learning-ami-id> \
   --instance-type g4dn.xlarge \
@@ -156,7 +159,7 @@ aws ec2 run-instances \
   --iam-instance-profile Name=spark-inference-profile \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=spark-worker},{Key=Project,Value=inference-platform}]' \
   --instance-market-options '{"MarketType":"spot","SpotOptions":{"SpotInstanceType":"one-time","MaxPrice":"0.20"}}' \
-  --count 2
+  --count 1
 ```
 
 ### 4.3 Note the IPs
@@ -308,23 +311,25 @@ Verify on master UI (`http://<MASTER_PUBLIC_IP>:8080`): workers should appear wi
 From the master instance, submit the job:
 
 ```bash
-# All 3 modes
+# All 3 modes (single worker — use 4 partitions)
 docker exec spark-master python /app/benchmark/run_benchmark.py --mode all \
   --signal-samples 50000 --image-samples 2000 --detection-samples 500 \
-  --batch-size 256 --partitions 8
+  --batch-size 256 --partitions 4
 
-# Or distributed mode only (to test the Spark cluster path)
+# Or distributed mode only via spark-submit (adjust num-executors to match worker count)
 docker exec spark-master spark-submit \
   --master spark://<MASTER_PRIVATE_IP>:7077 \
   --deploy-mode client \
-  --num-executors 2 \
+  --num-executors 1 \
   --executor-cores 4 \
   --executor-memory 12g \
   --conf spark.executor.resource.gpu.amount=1 \
   --conf spark.task.resource.gpu.amount=0.1 \
   --conf spark.executorEnv.SPARK_EXECUTOR_GPU=1 \
-  /app/benchmark/run_benchmark.py --mode distributed --partitions 8
+  /app/benchmark/run_benchmark.py --mode distributed --partitions 4
 ```
+
+> With 1 worker (4 vCPUs), `--partitions 4` gives 1 partition per core — optimal. With 2 workers, bump to `--partitions 8`.
 
 ### Retrieve results
 
@@ -373,9 +378,10 @@ You should see:
 
 | Duration | Config | Estimated cost |
 |----------|--------|---------------|
+| 1 hour | 1 master + 1 worker | ~$0.20 |
 | 1 hour | 1 master + 2 workers | ~$0.36 |
+| 3 hours | 1 master + 1 worker | ~$0.60 |
 | 3 hours | 1 master + 2 workers | ~$1.08 |
-| 8 hours (full day testing) | 1 master + 2 workers | ~$2.88 |
 
 ### Automatic shutdown (safety net)
 
