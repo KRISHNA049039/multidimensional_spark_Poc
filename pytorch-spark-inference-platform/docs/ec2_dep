@@ -1,0 +1,466 @@
+# EC2 Deployment Guide — Multi-Model Inference Platform
+
+Step-by-step guide to deploy the pytorch-spark-inference-platform on AWS EC2 instances with GPU support.
+
+## Table of Contents
+
+1. [Architecture Overview](#1-architecture-overview)
+2. [Instance Selection](#2-instance-selection)
+3. [Prerequisites & AWS Setup](#3-prerequisites--aws-setup)
+4. [Launch EC2 Instances](#4-launch-ec2-instances)
+5. [Instance Setup (All Nodes)](#5-instance-setup-all-nodes)
+6. [Deploy Spark Master](#6-deploy-spark-master)
+7. [Deploy Spark Workers](#7-deploy-spark-workers)
+8. [Run the Benchmark](#8-run-the-benchmark)
+9. [Monitoring & Spark UI](#9-monitoring--spark-ui)
+10. [Cost Management](#10-cost-management)
+11. [Security Considerations](#11-security-considerations)
+12. [Cleanup](#12-cleanup)
+
+---
+
+## 1. Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        VPC (10.0.0.0/16)                        │
+│                                                                 │
+│  ┌──────────────────┐     ┌──────────────────────────────────┐ │
+│  │   Spark Master   │     │         Spark Workers            │ │
+│  │   t3.medium      │     │   g4dn.xlarge × 2 (T4 GPU)      │ │
+│  │                  │     │                                  │ │
+│  │  - Driver        │◄───►│  - Executor + GPU inference      │ │
+│  │  - Spark UI      │     │  - CUDA 12.1 + MPS              │ │
+│  │  - Port 7077     │     │  - SPARK_EXECUTOR_GPU=1          │ │
+│  │  - Port 8080     │     │                                  │ │
+│  │  - Port 4040     │     │  [Container: multi-model-inference│ │
+│  └──────────────────┘     │   with all 10 models]            │ │
+│                           └──────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Instance Selection
+
+| Role | Instance Type | GPU | vCPUs | RAM | Storage | Spot $/hr (approx) |
+|------|--------------|-----|-------|-----|---------|-------------------|
+| Master (driver) | `t3.medium` | None | 2 | 4 GB | 30 GB gp3 | ~$0.04 |
+| Worker (executor) | `g4dn.xlarge` | 1× T4 16GB | 4 | 16 GB | 125 GB NVMe | ~$0.16 |
+| Worker (budget alt) | `g4dn.2xlarge` | 1× T4 16GB | 8 | 32 GB | 225 GB NVMe | ~$0.23 |
+| Worker (multi-GPU) | `g4dn.12xlarge` | 4× T4 16GB | 48 | 192 GB | 900 GB NVMe | ~$1.40 |
+
+**Recommended starting config:** 1× `t3.medium` master + 2× `g4dn.xlarge` workers.
+Total spot cost: ~$0.36/hr → a 2-hour test session costs under $1.
+
+### Why g4dn?
+
+- T4 GPU has 16GB VRAM — enough for all 10 models (~2GB total estimated)
+- NVIDIA drivers pre-installed on Deep Learning AMIs
+- Best price/performance for inference workloads
+- Available in most regions
+
+---
+
+## 3. Prerequisites & AWS Setup
+
+### 3.1 Local machine requirements
+
+- AWS CLI v2 installed and configured (`aws configure`)
+- SSH key pair created in target region
+- Docker installed (to build the image locally before upload)
+
+### 3.2 Security Group
+
+Create a security group (`sg-spark-inference`) with these inbound rules:
+
+| Port | Protocol | Source | Purpose |
+|------|----------|--------|---------|
+| 22 | TCP | Your IP | SSH access |
+| 7077 | TCP | Security Group self | Spark master RPC |
+| 8080 | TCP | Your IP | Spark master web UI |
+| 4040 | TCP | Your IP | Spark application UI |
+| 7078 | TCP | Security Group self | Spark worker RPC |
+| All traffic | All | Security Group self | Inter-node communication |
+
+```bash
+# Create security group
+aws ec2 create-security-group \
+  --group-name sg-spark-inference \
+  --description "Spark inference cluster" \
+  --vpc-id <your-vpc-id>
+
+# Add rules (replace sg-id)
+aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol tcp --port 22 --cidr <your-ip>/32
+aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol tcp --port 8080 --cidr <your-ip>/32
+aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol tcp --port 4040 --cidr <your-ip>/32
+aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol -1 --source-group <sg-id>
+```
+
+### 3.3 IAM Role (optional, for S3 results upload)
+
+If you want results automatically pushed to S3:
+```bash
+aws iam create-role --role-name spark-inference-ec2 \
+  --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+
+aws iam attach-role-policy --role-name spark-inference-ec2 \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+aws iam create-instance-profile --instance-profile-name spark-inference-profile
+aws iam add-role-to-instance-profile --instance-profile-name spark-inference-profile --role-name spark-inference-ec2
+```
+
+### 3.4 Find the Deep Learning AMI
+
+```bash
+# Get latest NVIDIA Deep Learning AMI (Ubuntu 22.04)
+aws ec2 describe-images \
+  --owners amazon \
+  --filters "Name=name,Values=Deep Learning AMI GPU PyTorch*Ubuntu 22.04*" \
+  --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" \
+  --output text
+```
+
+This AMI comes with NVIDIA drivers, Docker, and nvidia-container-toolkit pre-installed.
+
+---
+
+## 4. Launch EC2 Instances
+
+### 4.1 Launch Master
+
+```bash
+aws ec2 run-instances \
+  --image-id <deep-learning-ami-id> \
+  --instance-type t3.medium \
+  --key-name <your-key-pair> \
+  --security-group-ids <sg-id> \
+  --subnet-id <subnet-id> \
+  --iam-instance-profile Name=spark-inference-profile \
+  --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":30,"VolumeType":"gp3"}}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=spark-master},{Key=Project,Value=inference-platform}]' \
+  --instance-market-options '{"MarketType":"spot","SpotOptions":{"SpotInstanceType":"one-time","MaxPrice":"0.05"}}' \
+  --count 1
+```
+
+### 4.2 Launch Workers (GPU)
+
+```bash
+aws ec2 run-instances \
+  --image-id <deep-learning-ami-id> \
+  --instance-type g4dn.xlarge \
+  --key-name <your-key-pair> \
+  --security-group-ids <sg-id> \
+  --subnet-id <subnet-id> \
+  --iam-instance-profile Name=spark-inference-profile \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=spark-worker},{Key=Project,Value=inference-platform}]' \
+  --instance-market-options '{"MarketType":"spot","SpotOptions":{"SpotInstanceType":"one-time","MaxPrice":"0.20"}}' \
+  --count 2
+```
+
+### 4.3 Note the IPs
+
+```bash
+aws ec2 describe-instances \
+  --filters "Name=tag:Project,Values=inference-platform" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[].[Tags[?Key=='Name'].Value|[0],PrivateIpAddress,PublicIpAddress]" \
+  --output table
+```
+
+Save these — you'll need:
+- `MASTER_PRIVATE_IP` — for worker→master Spark communication
+- `MASTER_PUBLIC_IP` — for your SSH and browser access
+- `WORKER_PUBLIC_IPs` — for SSH into workers
+
+---
+
+## 5. Instance Setup (All Nodes)
+
+SSH into each instance and run:
+
+```bash
+ssh -i <your-key.pem> ubuntu@<instance-public-ip>
+```
+
+### 5.1 Verify GPU (workers only)
+
+```bash
+nvidia-smi
+# Should show T4 GPU with 16GB, driver 535+
+```
+
+### 5.2 Verify Docker + NVIDIA runtime
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
+# Should print the same GPU info inside the container
+```
+
+### 5.3 Load the platform Docker image
+
+**Option A — Build on the instance (requires internet):**
+```bash
+git clone <your-repo-url> && cd pytorch-spark-inference-platform
+docker build -f deploy/Dockerfile -t multi-model-inference:latest .
+```
+
+**Option B — Upload pre-built image (faster, recommended):**
+
+On your local machine:
+```bash
+docker build -f deploy/Dockerfile -t multi-model-inference:latest .
+docker save multi-model-inference:latest | gzip > multi-model-inference.tar.gz
+# Upload to S3
+aws s3 cp multi-model-inference.tar.gz s3://<your-bucket>/inference/
+```
+
+On each EC2 instance:
+```bash
+aws s3 cp s3://<your-bucket>/inference/multi-model-inference.tar.gz .
+gunzip -c multi-model-inference.tar.gz | docker load
+```
+
+### 5.4 Enable MPS on workers (optional, improves multi-process GPU sharing)
+
+```bash
+# On each worker node
+sudo nvidia-cuda-mps-control -d
+echo "MPS enabled: $(nvidia-cuda-mps-control status 2>/dev/null || echo 'running as daemon')"
+```
+
+---
+
+## 6. Deploy Spark Master
+
+SSH into the master instance:
+
+```bash
+ssh -i <key.pem> ubuntu@<MASTER_PUBLIC_IP>
+```
+
+Start the master container:
+
+```bash
+docker run -d \
+  --name spark-master \
+  --network host \
+  -e SPARK_MODE=master \
+  -e PYSPARK_PYTHON=python \
+  -e PYSPARK_DRIVER_PYTHON=python \
+  multi-model-inference:latest \
+  bash -c "
+    \$SPARK_HOME/sbin/start-master.sh && \
+    echo 'Master started on port 7077' && \
+    tail -f \$SPARK_HOME/logs/*master*
+  "
+```
+
+Verify:
+```bash
+docker logs spark-master | grep "Started MasterWebUI"
+# Should show: Started MasterWebUI at http://<MASTER_PRIVATE_IP>:8080
+```
+
+Open `http://<MASTER_PUBLIC_IP>:8080` in your browser — you should see the Spark master UI with 0 workers.
+
+---
+
+## 7. Deploy Spark Workers
+
+SSH into each worker instance:
+
+```bash
+ssh -i <key.pem> ubuntu@<WORKER_PUBLIC_IP>
+```
+
+Start the worker container:
+
+```bash
+MASTER_IP=<MASTER_PRIVATE_IP>
+
+docker run -d \
+  --name spark-worker \
+  --network host \
+  --gpus all \
+  --shm-size=4g \
+  -e SPARK_MODE=worker \
+  -e SPARK_MASTER=spark://${MASTER_IP}:7077 \
+  -e SPARK_EXECUTOR_GPU=1 \
+  -e NVIDIA_VISIBLE_DEVICES=all \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+  -e PYSPARK_PYTHON=python \
+  -e PYSPARK_DRIVER_PYTHON=python \
+  multi-model-inference:latest \
+  bash -c "
+    \$SPARK_HOME/sbin/start-worker.sh spark://${MASTER_IP}:7077 -c 4 -m 12g && \
+    echo 'Worker registered with master' && \
+    tail -f \$SPARK_HOME/logs/*worker*
+  "
+```
+
+Verify on master UI (`http://<MASTER_PUBLIC_IP>:8080`): workers should appear within 10-15 seconds.
+
+---
+
+## 8. Run the Benchmark
+
+From the master instance, submit the job:
+
+```bash
+# All 3 modes
+docker exec spark-master python /app/benchmark/run_benchmark.py --mode all \
+  --signal-samples 50000 --image-samples 2000 --detection-samples 500 \
+  --batch-size 256 --partitions 8
+
+# Or distributed mode only (to test the Spark cluster path)
+docker exec spark-master spark-submit \
+  --master spark://<MASTER_PRIVATE_IP>:7077 \
+  --deploy-mode client \
+  --num-executors 2 \
+  --executor-cores 4 \
+  --executor-memory 12g \
+  --conf spark.executor.resource.gpu.amount=1 \
+  --conf spark.task.resource.gpu.amount=0.1 \
+  --conf spark.executorEnv.SPARK_EXECUTOR_GPU=1 \
+  /app/benchmark/run_benchmark.py --mode distributed --partitions 8
+```
+
+### Retrieve results
+
+```bash
+# Copy results out of container
+docker cp spark-master:/app/results/metrics_report.md ./metrics_report.md
+docker cp spark-master:/app/results/raw_results.json ./raw_results.json
+
+# Optional: push to S3
+aws s3 cp ./metrics_report.md s3://<your-bucket>/results/$(date +%Y%m%d_%H%M)/
+aws s3 cp ./raw_results.json s3://<your-bucket>/results/$(date +%Y%m%d_%H%M)/
+```
+
+---
+
+## 9. Monitoring & Spark UI
+
+| UI | URL | What it shows |
+|----|-----|---------------|
+| Master UI | `http://<MASTER_PUBLIC_IP>:8080` | Connected workers, running/completed apps |
+| Application UI | `http://<MASTER_PUBLIC_IP>:4040` | Jobs, stages, tasks, executor metrics |
+
+### GPU monitoring on workers
+
+```bash
+# SSH into a worker, watch GPU utilization during the run
+watch -n 1 nvidia-smi
+```
+
+You should see:
+- GPU memory usage climbing as models load (~2GB for all 10)
+- GPU utilization spiking to 60-90% during parallel inference (CUDA streams)
+- Multiple processes if MPS is active
+
+---
+
+## 10. Cost Management
+
+### Spot instance tips
+
+- Use `one-time` spot requests (not persistent) so they don't auto-restart
+- Set max price slightly above current spot price (check pricing history in console)
+- g4dn.xlarge spot is typically 60-70% cheaper than on-demand (~$0.16 vs $0.526/hr)
+
+### Budget estimate
+
+| Duration | Config | Estimated cost |
+|----------|--------|---------------|
+| 1 hour | 1 master + 2 workers | ~$0.36 |
+| 3 hours | 1 master + 2 workers | ~$1.08 |
+| 8 hours (full day testing) | 1 master + 2 workers | ~$2.88 |
+
+### Automatic shutdown (safety net)
+
+Add a cron job on each instance to self-terminate after N hours:
+```bash
+# Terminate this instance after 3 hours (safety net)
+echo "sudo shutdown -h now" | at now + 3 hours
+```
+
+Or use an EC2 instance scheduler / Lambda function for production testing schedules.
+
+---
+
+## 11. Security Considerations
+
+- **SSH keys:** Use a dedicated key pair for this project; don't reuse personal keys
+- **Security group:** Lock down to your IP only; never open 7077/8080 to 0.0.0.0/0
+- **No secrets in containers:** The platform doesn't use API keys or secrets — all models are self-contained
+- **Spot termination:** Spot instances can be reclaimed with 2-min warning. For critical long runs, use on-demand or save intermediate results to S3
+- **VPC isolation:** Deploy in a private subnet if possible; use a bastion host or SSM for access
+
+---
+
+## 12. Cleanup
+
+**Always terminate instances after testing.** GPU instances are expensive if forgotten.
+
+```bash
+# Find all instances tagged with our project
+INSTANCE_IDS=$(aws ec2 describe-instances \
+  --filters "Name=tag:Project,Values=inference-platform" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[].InstanceId" --output text)
+
+# Terminate all
+aws ec2 terminate-instances --instance-ids $INSTANCE_IDS
+
+# Verify
+aws ec2 describe-instances --instance-ids $INSTANCE_IDS \
+  --query "Reservations[].Instances[].[InstanceId,State.Name]" --output table
+```
+
+Also clean up:
+```bash
+# Remove security group (after instances are terminated)
+aws ec2 delete-security-group --group-id <sg-id>
+
+# Remove S3 artifacts if no longer needed
+aws s3 rm s3://<your-bucket>/inference/ --recursive
+```
+
+---
+
+## Quick Reference — Full Deployment in 10 Commands
+
+```bash
+# 1. Build image locally
+docker build -f deploy/Dockerfile -t multi-model-inference:latest .
+
+# 2. Save and upload to S3
+docker save multi-model-inference:latest | gzip > image.tar.gz
+aws s3 cp image.tar.gz s3://my-bucket/inference/
+
+# 3. Launch instances (master + 2 workers)
+aws ec2 run-instances --instance-type t3.medium ...    # master
+aws ec2 run-instances --instance-type g4dn.xlarge --count 2 ...  # workers
+
+# 4. On each instance: load image
+aws s3 cp s3://my-bucket/inference/image.tar.gz . && gunzip -c image.tar.gz | docker load
+
+# 5. On master: start Spark master
+docker run -d --name spark-master --network host multi-model-inference:latest ...
+
+# 6. On each worker: start Spark worker
+docker run -d --name spark-worker --network host --gpus all --shm-size=4g \
+  -e SPARK_EXECUTOR_GPU=1 -e SPARK_MASTER=spark://<MASTER_IP>:7077 ...
+
+# 7. Submit job
+docker exec spark-master python /app/benchmark/run_benchmark.py --mode all
+
+# 8. Grab results
+docker cp spark-master:/app/results/metrics_report.md .
+
+# 9. Upload results to S3
+aws s3 cp metrics_report.md s3://my-bucket/results/
+
+# 10. Terminate everything
+aws ec2 terminate-instances --instance-ids ...
+```
