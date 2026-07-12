@@ -18,16 +18,19 @@
 
 | Mode | Throughput | Time | Hardware Used | Scales Beyond 1 Node? |
 |---|---|---|---|---|
-| **Single GPU** (CUDA Streams) | 23,353 samples/sec | 11.01s | 1× Tesla T4 | No |
-| **Hybrid CPU+GPU** | 32,621 samples/sec | 7.77s | 1× Tesla T4 (all models on GPU) | No |
-| **Spark Distributed** (local[4]) | 2,839 samples/sec | 8.87s | 4 CPU cores | **Yes (linear)** |
+| **Single GPU** (CUDA Streams) | 41,908 samples/sec | 6.05s | 1× Tesla T4 | No |
+| **Hybrid CPU+GPU** | 32,773 samples/sec | 7.73s | 1× Tesla T4 (all models on GPU) | No |
+| **Spark Distributed + GPU** | 5,329 samples/sec | 4.72s | 1× Tesla T4 (2 partitions) | **Yes (linear)** |
+| **Spark Distributed (CPU)** | 2,967 samples/sec | 8.48s | 4 CPU cores (4 partitions) | **Yes (linear)** |
 
 ### Key Insights
 
-- Hybrid is fastest (32.6K/sec) because smaller batches reduce memory pressure and GPU utilization is more efficient
-- Single GPU is strong (23.3K/sec) with larger batches — both use CUDA streams under the hood
-- Spark distributed (2.8K/sec on CPU) is slower per-node but scales linearly with cluster size
-- GPU modes are **8-11× faster** than CPU-based Spark on the same hardware
+- Single GPU is fastest (41.9K/sec) — CUDA streams run all 10 models in parallel on one GPU
+- Hybrid (32.8K/sec) — same engine, smaller batch size for memory safety
+- Spark + GPU (5.3K/sec) — **1.8× faster than CPU-only Spark** on same hardware
+- Spark CPU-only (2.97K/sec) — baseline; scales linearly with cluster nodes
+- GPU modes are **8-14× faster** than CPU-based Spark on the same hardware
+- On a 7-GPU cluster: Spark + GPU projected at **~37K samples/sec** (7 × 5.3K)
 
 ---
 
@@ -37,7 +40,8 @@
 |---|---|---|
 | Single sensor / edge workstation | Single GPU | Fastest, lowest latency, simplest deployment |
 | GPU with limited VRAM (4GB card) | Hybrid | Automatically spills low-priority models to CPU |
-| Multi-sensor production cluster | Spark Distributed | Scales to N nodes, fault-tolerant, no code changes |
+| Multi-sensor production cluster | Spark Distributed + GPU | Scales to N nodes with GPU on each, fault-tolerant |
+| Airgapped / DRDO deployment | Spark + GPU + MPS | Multi-GPU sharing on isolated hardware |
 | Airgapped / DRDO deployment | Spark + NVIDIA MPS | Multi-GPU sharing on isolated hardware |
 
 ---
@@ -46,10 +50,11 @@
 
 | Cluster Size | Nodes | Estimated Throughput | AWS Spot Cost/hr |
 |---|---|---|---|
-| Current PoC | 1× g4dn.xlarge | 2,839 samples/sec | $0.16 |
-| Small cluster | 4× g4dn.xlarge | ~11,000 samples/sec | $0.64 |
-| Medium cluster | 8× g4dn.xlarge | ~22,000 samples/sec | $1.28 |
-| Production scale | 16× g4dn.xlarge | ~44,000 samples/sec | $2.56 |
+| Current PoC (1 GPU) | 1× g4dn.xlarge | 5,329 samples/sec | $0.16 |
+| Small cluster | 4× g4dn.xlarge | ~21,000 samples/sec | $0.64 |
+| DRDO target | 7× GPU nodes | ~37,000 samples/sec | N/A (on-prem) |
+| Medium cluster | 8× g4dn.xlarge | ~42,000 samples/sec | $1.28 |
+| Production scale | 16× g4dn.xlarge | ~85,000 samples/sec | $2.56 |
 
 Spark throughput scales linearly with worker count — proven by architecture (each worker processes independent data partitions).
 
@@ -77,7 +82,7 @@ Spark throughput scales linearly with worker count — proven by architecture (e
 
 ## Key Takeaway
 
-> "We run 10 AI models simultaneously on one GPU at 32K samples/sec. The same code scales to a Spark cluster for production throughput — add nodes, get proportional speedup, with zero code changes."
+> "We run 10 AI models simultaneously on one GPU at 42K samples/sec. The same code scales to a Spark cluster for production throughput — add nodes, get proportional speedup, with zero code changes."
 
 ---
 
