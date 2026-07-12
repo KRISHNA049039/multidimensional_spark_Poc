@@ -142,9 +142,9 @@ Full deployment guide: see `docs/EC2_DEPLOYMENT.md`
 %%{init: {'theme': 'default'}}%%
 xychart-beta
     title "Inference Throughput by Mode (samples/sec)"
-    x-axis ["Hybrid CPU+GPU", "Single GPU", "Spark Distributed"]
-    y-axis "Samples/sec" 0 --> 35000
-    bar [32621, 23353, 2839]
+    x-axis ["Single GPU", "Hybrid CPU+GPU", "Spark+GPU", "Spark CPU"]
+    y-axis "Samples/sec" 0 --> 45000
+    bar [41908, 32773, 5329, 2967]
 ```
 
 ### Execution Time Comparison
@@ -153,9 +153,9 @@ xychart-beta
 %%{init: {'theme': 'default'}}%%
 xychart-beta
     title "Total Execution Time (seconds)"
-    x-axis ["Hybrid CPU+GPU", "Single GPU", "Spark Distributed"]
-    y-axis "Time (sec)" 0 --> 12
-    bar [7.77, 11.01, 8.87]
+    x-axis ["Single GPU", "Hybrid CPU+GPU", "Spark+GPU", "Spark CPU"]
+    y-axis "Time (sec)" 0 --> 10
+    bar [6.05, 7.73, 4.72, 8.48]
 ```
 
 ### GPU vs CPU Speedup
@@ -163,21 +163,22 @@ xychart-beta
 ```mermaid
 %%{init: {'theme': 'default'}}%%
 pie title Throughput Distribution
-    "Hybrid (32,621/sec)" : 32621
-    "Single GPU (23,353/sec)" : 23353
-    "Spark Distributed (2,839/sec)" : 2839
+    "Single GPU (41,908/sec)" : 41908
+    "Hybrid (32,773/sec)" : 32773
+    "Spark+GPU (5,329/sec)" : 5329
+    "Spark CPU (2,967/sec)" : 2967
 ```
 
-### Scaling Projection (Spark Distributed)
+### Scaling Projection (Spark Distributed + GPU)
 
 ```mermaid
 %%{init: {'theme': 'default'}}%%
 xychart-beta
-    title "Spark Cluster Scaling Projection"
-    x-axis ["1 Node", "4 Nodes", "8 Nodes", "16 Nodes"]
-    y-axis "Estimated Throughput (samples/sec)" 0 --> 50000
-    bar [2839, 11356, 22712, 45424]
-    line [2839, 11356, 22712, 45424]
+    title "Spark + GPU Cluster Scaling Projection"
+    x-axis ["1 Node", "4 Nodes", "7 Nodes (DRDO)", "16 Nodes"]
+    y-axis "Estimated Throughput (samples/sec)" 0 --> 90000
+    bar [5329, 21316, 37303, 85264]
+    line [5329, 21316, 37303, 85264]
 ```
 
 ### Mode Selection Decision Tree
@@ -185,12 +186,12 @@ xychart-beta
 ```mermaid
 flowchart TD
     A[Start: Choose Inference Mode] --> B{GPU Available?}
-    B -->|No| C[Spark Distributed<br/>CPU-only, scales with nodes]
+    B -->|No| C[Spark Distributed CPU<br/>2,967/sec × N nodes]
     B -->|Yes| D{VRAM > 2GB?}
     D -->|No| E[Hybrid Mode<br/>Spill small models to CPU]
     D -->|Yes| F{Need multi-node scale?}
-    F -->|No| G[Single GPU / Hybrid<br/>32K samples/sec on 1 T4]
-    F -->|Yes| H[Spark + MPS<br/>Linear scaling across cluster]
+    F -->|No| G[Single GPU<br/>41,908/sec on 1 T4]
+    F -->|Yes| H[Spark + GPU + MPS<br/>5,329/sec × N nodes]
 
     style G fill:#90EE90
     style H fill:#87CEEB
