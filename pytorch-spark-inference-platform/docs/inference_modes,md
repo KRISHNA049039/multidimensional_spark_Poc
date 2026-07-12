@@ -1,0 +1,367 @@
+# Inference Modes — How Each Mode Works
+
+Conceptual explanation of the 4 inference modes in this platform, how data flows, and when to use each.
+
+---
+
+## Overview
+
+```mermaid
+flowchart LR
+    A[10 Models + Data] --> B{Choose Mode}
+    B --> C[Single GPU]
+    B --> D[Hybrid CPU+GPU]
+    B --> E[Spark Distributed CPU]
+    B --> F[Spark Distributed GPU]
+
+    C --> G[42K samples/sec]
+    D --> H[33K samples/sec]
+    E --> I[3K samples/sec × N nodes]
+    F --> J[5K samples/sec × N nodes]
+```
+
+---
+
+## Mode 1: Single GPU (CUDA Streams)
+
+### Concept
+
+All 10 models are loaded onto **one GPU**. Each model gets its own **CUDA Stream** — a hardware queue for GPU operations. The GPU's kernel scheduler interleaves operations from all streams, achieving near-parallel execution.
+
+### How It Works
+
+```
+Step 1: Load all 10 models → GPU memory (~2 GB)
+Step 2: Create 10 CUDA Streams (one per model)
+Step 3: For each data batch:
+         ├─ Stream 0: EW Classifier forward pass (queued, non-blocking)
+         ├─ Stream 1: Signal Denoiser forward pass (queued, non-blocking)
+         ├─ Stream 2: Threat Prioritizer forward pass (queued, non-blocking)
+         ├─ ...
+         └─ Stream 9: YOLOv8-Small forward pass (queued, non-blocking)
+Step 4: torch.cuda.synchronize() — wait for ALL streams to finish
+Step 5: Collect outputs from all models
+```
+
+### Why It's Fastest
+
+- Zero network overhead (everything on one device)
+- GPU kernel scheduler interleaves operations from different streams
+- Larger batch sizes = better GPU utilization (more parallelism per stream)
+- Total time ≈ slowest model's time, NOT sum of all model times
+
+### Visual
+
+```
+Timeline (one batch):
+GPU Stream 0: ████████░░░░ (EW Classifier)
+GPU Stream 1: ░███████░░░░ (Signal Denoiser)
+GPU Stream 2: ░░████████░░ (Threat Prioritizer)
+GPU Stream 3: ░░░███░░░░░░ (RF Fingerprinter)
+...
+GPU Stream 9: ██████████░░ (YOLOv8-Small — largest, determines total time)
+              ─────────────────────────────►
+              0ms                        8ms
+
+Total = max(all models) ≈ 8ms, NOT sum ≈ 50ms
+```
+
+### Code Path
+
+```
+benchmark/run_benchmark.py
+  → inference/single_gpu.py::run_single_gpu_inference()
+    → CUDAStreamsEngine(all 10 models, all on "cuda:0")
+      → engine.infer_all_parallel(batch_inputs)
+        → Phase 1: Launch on CUDA streams (non-blocking)
+        → Phase 2: torch.cuda.synchronize()
+        → Phase 3: Collect outputs
+```
+
+### Limitations
+
+- Limited by single GPU's VRAM (must fit all models + batch data)
+- Cannot scale beyond one machine
+- If VRAM is insufficient, falls back to CPU (slow)
+
+---
+
+## Mode 2: Hybrid CPU+GPU
+
+### Concept
+
+The **GPUMemoryManager** decides which models fit on GPU (by priority and memory budget). High-priority/large models go to GPU with CUDA streams. Remaining models go to CPU with a ThreadPoolExecutor. Both execute **simultaneously**.
+
+### How It Works
+
+```
+Step 1: GPUMemoryManager.plan_placement()
+         ├─ Sort models by priority (YOLO > ResNet > Signal models)
+         ├─ Place models on GPU until VRAM budget is full
+         └─ Remaining → CPU
+
+Step 2: Split models into two groups:
+         GPU group: [yolov8_small, yolov8_nano, resnet18, ...]
+         CPU group: [signal_denoiser, anomaly_detector, ...]
+
+Step 3: For each data batch (simultaneously):
+         GPU group → CUDAStreamsEngine (parallel via streams)
+         CPU group → ThreadPoolExecutor (parallel via threads)
+
+Step 4: Wait for both groups → merge outputs
+```
+
+### When GPU Has Enough VRAM (T4 16GB — Our Case)
+
+All 10 models fit on GPU (1.97 GB total), so `cpu_models = []` and it behaves like single_gpu mode but with smaller batch sizes for memory safety.
+
+### When GPU Has Limited VRAM (e.g., GTX 1650 4GB)
+
+```
+GPU (4GB budget): yolov8_small(400MB), resnet18(300MB), yolov8_nano(200MB), efficientnet_b0(200MB)
+                  Total: 1100MB ← fits in 4GB with room for batches
+CPU (overflow):   signal_denoiser, anomaly_detector, ew_classifier, etc.
+                  Run on ThreadPoolExecutor (4 threads)
+```
+
+### Visual
+
+```
+Timeline (one batch, memory-constrained GPU):
+
+GPU Streams:  ████████░░░░ (YOLO-S)   ← High priority, benefits from GPU
+              ░██████░░░░░ (ResNet-18)
+              ░░████░░░░░░ (YOLO-N)
+
+CPU Threads:  ███░░░░░░░░░ (EW Classifier)    ← Small, fast on CPU anyway
+              ██░░░░░░░░░░ (Signal Denoiser)
+              ██░░░░░░░░░░ (Anomaly Detector)
+
+Both groups run SIMULTANEOUSLY
+Total time = max(GPU group time, CPU group time)
+```
+
+### Code Path
+
+```
+benchmark/run_benchmark.py
+  → inference/hybrid_cpu_gpu.py::run_hybrid_inference()
+    → GPUMemoryManager.plan_placement(model_sizes, priorities)
+    → CUDAStreamsEngine(gpu_models_only)
+    → ThreadPoolExecutor(cpu_models_only)
+    → Run both concurrently per batch
+```
+
+### Limitations
+
+- Still limited to one machine
+- CPU models are slower than GPU models
+- Best when GPU VRAM < total model memory
+
+---
+
+## Mode 3: Spark Distributed (CPU)
+
+### Concept
+
+Apache Spark distributes the workload across multiple **partitions** (which map to threads in local mode, or separate processes/machines in cluster mode). Model weights are **broadcast** once to all executors. Data is **partitioned** evenly. Each partition deserializes the models and runs inference independently.
+
+### How It Works
+
+```
+DRIVER (master process):
+  Step 1: Serialize all 10 models → bytes (torch.save state_dict)
+  Step 2: sc.broadcast(model_bytes) → sent once to all executors
+  Step 3: Split data into N partitions (chunks)
+  Step 4: sc.broadcast(data_chunks) → sent once
+  Step 5: Create RDD of partition indices [0, 1, 2, 3]
+  Step 6: rdd.map(infer_on_partition).collect()
+
+EACH PARTITION (executor thread/process):
+  Step 7: Receive model bytes from broadcast (cached after first access)
+  Step 8: Deserialize all 10 models onto CPU
+  Step 9: For each model: run batched inference on this partition's data chunk
+  Step 10: Return {model_name: samples_processed}
+
+DRIVER:
+  Step 11: Collect results from all partitions
+  Step 12: Aggregate throughput = total_samples / elapsed_time
+```
+
+### Visual
+
+```
+           ┌─────────────────────────────────────┐
+           │           SPARK DRIVER               │
+           │  broadcast(model_bytes)              │
+           │  broadcast(data_chunks)              │
+           └──────────┬──────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┬─────────────┐
+        ▼             ▼             ▼             ▼
+  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  │Partition 0│  │Partition 1│  │Partition 2│  │Partition 3│
+  │           │  │           │  │           │  │           │
+  │ deserialize│  │ deserialize│  │ deserialize│  │ deserialize│
+  │ 10 models │  │ 10 models │  │ 10 models │  │ 10 models │
+  │ on CPU    │  │ on CPU    │  │ on CPU    │  │ on CPU    │
+  │           │  │           │  │           │  │           │
+  │ infer on  │  │ infer on  │  │ infer on  │  │ infer on  │
+  │ chunk 0   │  │ chunk 1   │  │ chunk 2   │  │ chunk 3   │
+  └──────────┘  └──────────┘  └──────────┘  └──────────┘
+        │             │             │             │
+        └─────────────┼─────────────┘─────────────┘
+                      ▼
+              DRIVER: collect() + aggregate
+```
+
+### Why CPU in Local Mode?
+
+Spark `local[*]` runs partitions as **threads inside one process**. If all threads call `.to("cuda")` on the same GPU simultaneously, they contend for the same CUDA context and can **deadlock**. This was observed and fixed during development. CPU is safe because threads don't share a hardware context.
+
+### Code Path
+
+```
+benchmark/run_benchmark.py
+  → inference/distributed_gpu.py::run_distributed_gpu_inference()
+    → create_spark_session(master="local[4]")
+    → serialize models → sc.broadcast()
+    → chunk data → sc.broadcast()
+    → sc.parallelize(range(N)).map(infer_on_partition).collect()
+      → inside each partition: deserialize + batched forward pass on CPU
+```
+
+### Scaling
+
+- 1 node, 4 partitions: 2,967 samples/sec (measured)
+- 4 nodes, 16 partitions: ~12K samples/sec (projected)
+- 7 nodes, 28 partitions: ~21K samples/sec (projected)
+
+---
+
+## Mode 4: Spark Distributed (GPU)
+
+### Concept
+
+Same as Mode 3, except each partition runs inference on **GPU** instead of CPU. Enabled by setting `SPARK_EXECUTOR_GPU=1`. On a real cluster, each executor is a separate OS process with its own CUDA context — safe to use GPU. With **NVIDIA MPS** enabled, multiple processes share the GPU truly in parallel.
+
+### How It Works
+
+```
+Same as Mode 3, except:
+  Step 8: Deserialize all 10 models onto CUDA (not CPU)
+  Step 9: Run batched inference on GPU
+
+The key difference in the code:
+  if torch.cuda.is_available() and os.environ.get("SPARK_EXECUTOR_GPU") == "1":
+      device = "cuda"    ← GPU path
+  else:
+      device = "cpu"     ← CPU path (safe default)
+```
+
+### When It's Safe
+
+| Deployment | Safe to use GPU? | Why |
+|---|---|---|
+| local[*] (threads, 1 process) | Risky (2 partitions max) | Threads share CUDA context |
+| Cluster (separate processes) | Yes | Each process has own CUDA context |
+| Cluster + MPS | Best | MPS enables true parallel GPU access |
+
+### Visual (Real Cluster with MPS)
+
+```
+  ┌────────────────────────────┐     ┌────────────────────────────┐
+  │  Worker Node 1 (GPU 0)     │     │  Worker Node 2 (GPU 1)     │
+  │                            │     │                            │
+  │  ┌─────────┐ ┌─────────┐  │     │  ┌─────────┐ ┌─────────┐  │
+  │  │Executor │ │Executor │  │     │  │Executor │ │Executor │  │
+  │  │(proc 1) │ │(proc 2) │  │     │  │(proc 3) │ │(proc 4) │  │
+  │  │ CUDA    │ │ CUDA    │  │     │  │ CUDA    │ │ CUDA    │  │
+  │  └────┬────┘ └────┬────┘  │     │  └────┬────┘ └────┬────┘  │
+  │       │            │       │     │       │            │       │
+  │       └─────┬──────┘       │     │       └─────┬──────┘       │
+  │             ▼              │     │             ▼              │
+  │     ┌──────────────┐       │     │     ┌──────────────┐       │
+  │     │  NVIDIA MPS  │       │     │     │  NVIDIA MPS  │       │
+  │     │  (parallel   │       │     │     │  (parallel   │       │
+  │     │   GPU access)│       │     │     │   GPU access)│       │
+  │     └──────────────┘       │     │     └──────────────┘       │
+  │             ▼              │     │             ▼              │
+  │     ┌──────────────┐       │     │     ┌──────────────┐       │
+  │     │  Tesla T4    │       │     │     │  Tesla T4    │       │
+  │     │  16 GB VRAM  │       │     │     │  16 GB VRAM  │       │
+  │     └──────────────┘       │     └──────────────┘       │
+  └────────────────────────────┘     └────────────────────────────┘
+```
+
+### Scaling (GPU Cluster)
+
+- 1 GPU, 2 partitions: 5,329 samples/sec (measured)
+- 7 GPUs, 14 partitions: ~37K samples/sec (projected, with MPS)
+- 16 GPUs, 32 partitions: ~85K samples/sec (projected)
+
+### Code Path
+
+```
+Same as Mode 3, with:
+  SPARK_EXECUTOR_GPU=1 environment variable
+  → infer_on_partition() picks device="cuda"
+  → Each partition loads models on GPU and runs forward passes
+```
+
+---
+
+## Comparison Summary
+
+| Aspect | Single GPU | Hybrid | Spark CPU | Spark GPU |
+|---|---|---|---|---|
+| Throughput (1 node) | 41,908/sec | 32,773/sec | 2,967/sec | 5,329/sec |
+| Parallelism method | CUDA Streams | Streams + Threads | Spark partitions | Spark + CUDA |
+| GPU utilization | Maximum | Maximum (if fits) | None | Per-partition |
+| Scales to N nodes | No | No | Yes (linear) | Yes (linear) |
+| Fault tolerance | None | None | Spark retries | Spark retries |
+| Memory requirement | All models fit in 1 GPU | Flexible (GPU+CPU split) | CPU RAM only | GPU per node |
+| Code file | `single_gpu.py` | `hybrid_cpu_gpu.py` | `distributed_gpu.py` | `distributed_gpu.py` |
+| Best for | Edge/workstation | Limited VRAM | CPU-only clusters | GPU clusters |
+
+---
+
+## How Modes Relate to Each Other
+
+```mermaid
+graph TD
+    A[CUDAStreamsEngine] --> B[Single GPU Mode]
+    A --> C[Hybrid Mode - GPU subset]
+    D[ThreadPoolExecutor] --> C
+    D --> E[Hybrid Mode - CPU subset]
+    F[Spark RDD + Broadcast] --> G[Distributed CPU]
+    F --> H[Distributed GPU]
+    A -.->|"Used inside each executor<br>on real cluster"| H
+
+    style A fill:#90EE90
+    style F fill:#87CEEB
+```
+
+The `CUDAStreamsEngine` is the core building block — it's used directly in Single GPU mode, inside Hybrid mode for the GPU subset, and inside each Spark executor on a real GPU cluster.
+
+---
+
+## Decision Matrix
+
+```mermaid
+flowchart TD
+    Start[Choose Deployment Mode] --> Q1{How many machines?}
+    Q1 -->|1 machine| Q2{GPU available?}
+    Q1 -->|Multiple machines| Q3{GPUs on workers?}
+
+    Q2 -->|Yes, 8+ GB VRAM| SingleGPU[Single GPU Mode<br/>42K samples/sec]
+    Q2 -->|Yes, < 8 GB VRAM| Hybrid[Hybrid Mode<br/>Spill to CPU]
+    Q2 -->|No GPU| SparkCPU[Spark local CPU<br/>3K samples/sec]
+
+    Q3 -->|Yes| SparkGPU[Spark Distributed + GPU<br/>5K/sec × N nodes]
+    Q3 -->|No| SparkCPUCluster[Spark Distributed CPU<br/>3K/sec × N nodes]
+
+    style SingleGPU fill:#90EE90
+    style SparkGPU fill:#87CEEB
+    style Hybrid fill:#FFD700
+```
