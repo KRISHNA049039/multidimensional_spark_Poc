@@ -19,12 +19,15 @@
 | Mode | Throughput | Time | Hardware Used | Scales Beyond 1 Node? |
 |---|---|---|---|---|
 | **Single GPU** (CUDA Streams) | 23,353 samples/sec | 11.01s | 1× Tesla T4 | No |
+| **Hybrid CPU+GPU** | 32,621 samples/sec | 7.77s | 1× Tesla T4 (all models on GPU) | No |
 | **Spark Distributed** (local[4]) | 2,839 samples/sec | 8.87s | 4 CPU cores | **Yes (linear)** |
-| **Hybrid CPU+GPU** | *(pending)* | — | T4 + CPU split | No |
 
-### Key Insight
+### Key Insights
 
-Single GPU is **8× faster per node** because all 10 models run simultaneously on the GPU via CUDA streams. Spark distributed is slower per-node but scales linearly with cluster size.
+- Hybrid is fastest (32.6K/sec) because smaller batches reduce memory pressure and GPU utilization is more efficient
+- Single GPU is strong (23.3K/sec) with larger batches — both use CUDA streams under the hood
+- Spark distributed (2.8K/sec on CPU) is slower per-node but scales linearly with cluster size
+- GPU modes are **8-11× faster** than CPU-based Spark on the same hardware
 
 ---
 
@@ -74,7 +77,7 @@ Spark throughput scales linearly with worker count — proven by architecture (e
 
 ## Key Takeaway
 
-> "We run 10 AI models simultaneously on one GPU at 23K samples/sec. The same code scales to a Spark cluster for production throughput — add nodes, get proportional speedup, with zero code changes."
+> "We run 10 AI models simultaneously on one GPU at 32K samples/sec. The same code scales to a Spark cluster for production throughput — add nodes, get proportional speedup, with zero code changes."
 
 ---
 
@@ -122,3 +125,255 @@ Full deployment guide: see `docs/EC2_DEPLOYMENT.md`
 | 8 | EfficientNet-B0 | Image Classification | 224×224 RGB | 5.3M | 200 MB |
 | 9 | YOLOv8-Nano | Object Detection | 640×640 RGB | 3.2M | 200 MB |
 | 10 | YOLOv8-Small | Object Detection | 640×640 RGB | 11.2M | 400 MB |
+
+
+---
+
+## Comparison Charts
+
+### Throughput Comparison (samples/sec)
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+xychart-beta
+    title "Inference Throughput by Mode (samples/sec)"
+    x-axis ["Hybrid CPU+GPU", "Single GPU", "Spark Distributed"]
+    y-axis "Samples/sec" 0 --> 35000
+    bar [32621, 23353, 2839]
+```
+
+### Execution Time Comparison
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+xychart-beta
+    title "Total Execution Time (seconds)"
+    x-axis ["Hybrid CPU+GPU", "Single GPU", "Spark Distributed"]
+    y-axis "Time (sec)" 0 --> 12
+    bar [7.77, 11.01, 8.87]
+```
+
+### GPU vs CPU Speedup
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+pie title Throughput Distribution
+    "Hybrid (32,621/sec)" : 32621
+    "Single GPU (23,353/sec)" : 23353
+    "Spark Distributed (2,839/sec)" : 2839
+```
+
+### Scaling Projection (Spark Distributed)
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+xychart-beta
+    title "Spark Cluster Scaling Projection"
+    x-axis ["1 Node", "4 Nodes", "8 Nodes", "16 Nodes"]
+    y-axis "Estimated Throughput (samples/sec)" 0 --> 50000
+    bar [2839, 11356, 22712, 45424]
+    line [2839, 11356, 22712, 45424]
+```
+
+### Mode Selection Decision Tree
+
+```mermaid
+flowchart TD
+    A[Start: Choose Inference Mode] --> B{GPU Available?}
+    B -->|No| C[Spark Distributed<br/>CPU-only, scales with nodes]
+    B -->|Yes| D{VRAM > 2GB?}
+    D -->|No| E[Hybrid Mode<br/>Spill small models to CPU]
+    D -->|Yes| F{Need multi-node scale?}
+    F -->|No| G[Single GPU / Hybrid<br/>32K samples/sec on 1 T4]
+    F -->|Yes| H[Spark + MPS<br/>Linear scaling across cluster]
+
+    style G fill:#90EE90
+    style H fill:#87CEEB
+    style E fill:#FFD700
+    style C fill:#FFA07A
+```
+
+---
+
+## Airgapped / DRDO Deployment Guide
+
+### Overview
+
+Airgapped deployment means **no internet access** at runtime. Everything must be pre-built and transferred physically (USB, secure transfer). This platform is designed for airgapped operation — all model weights, code, and dependencies are baked into a single Docker image.
+
+### What Needs Internet (Build Time Only)
+
+| Component | Size | Downloaded During Build |
+|---|---|---|
+| Base Docker image (`nvidia/cuda:12.1`) | ~3.5 GB | Yes |
+| PyTorch + CUDA wheels | ~2 GB | Yes |
+| TorchVision, Ultralytics, PySpark | ~500 MB | Yes |
+| ResNet-18 pretrained weights | 44.7 MB | Yes (or pre-baked) |
+| MobileNetV3 pretrained weights | 9.8 MB | Yes (or pre-baked) |
+| EfficientNet-B0 pretrained weights | 20.5 MB | Yes (or pre-baked) |
+| YOLOv8-Nano weights | ~6 MB | Yes (or pre-baked) |
+| YOLOv8-Small weights | ~22 MB | Yes (or pre-baked) |
+
+### Step-by-Step Airgapped Deployment
+
+#### Phase 1: Build on Internet-Connected Machine
+
+```bash
+# 1. Clone the repo
+git clone <repo-url>
+cd pytorch-spark-inference-platform
+
+# 2. Pre-download pretrained weights (bake into image)
+python -c "
+import torch, os
+os.makedirs('models/weights', exist_ok=True)
+from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+torch.save(resnet18(weights=ResNet18_Weights.DEFAULT).state_dict(), 'models/weights/resnet18.pth')
+torch.save(mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.DEFAULT).state_dict(), 'models/weights/mobilenetv3.pth')
+torch.save(efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT).state_dict(), 'models/weights/efficientnet_b0.pth')
+print('Weights saved.')
+"
+
+# 3. Download YOLO weights
+pip install ultralytics
+python -c "from ultralytics import YOLO; YOLO('yolov8n.pt'); YOLO('yolov8s.pt')"
+mv yolov8n.pt yolov8s.pt models/weights/
+
+# 4. Build the Docker image
+docker build -f deploy/Dockerfile -t multi-model-inference:latest .
+
+# 5. Export the image to a tar file
+docker save multi-model-inference:latest -o multi-model-inference.tar
+
+# 6. (Optional) Compress for smaller transfer
+gzip multi-model-inference.tar
+# Result: multi-model-inference.tar.gz (~3-4 GB)
+```
+
+#### Phase 2: Transfer to Airgapped Network
+
+```
+Transfer method: USB drive, approved secure file transfer, or optical media
+
+Files to transfer:
+├── multi-model-inference.tar.gz    (~3-4 GB — the full Docker image)
+├── docker-compose.cluster.yml      (~1 KB — cluster config)
+└── README_AIRGAPPED.txt            (these instructions)
+
+Total transfer size: ~4 GB
+```
+
+#### Phase 3: Deploy on Airgapped Target Node(s)
+
+```bash
+# On each target node (must have Docker + NVIDIA Container Toolkit installed):
+
+# 1. Load the Docker image
+gunzip -c multi-model-inference.tar.gz | docker load
+# Output: Loaded image: multi-model-inference:latest
+
+# 2. Verify
+docker images | grep multi-model-inference
+
+# 3. Run the benchmark (single node, GPU)
+docker run --rm --gpus all --shm-size=4g \
+  -e PYSPARK_PYTHON=python \
+  -e PYSPARK_DRIVER_PYTHON=python \
+  -v $(pwd)/results:/app/results \
+  multi-model-inference:latest \
+  python /app/benchmark/run_benchmark.py --mode single_gpu \
+  --signal-samples 50000 --image-samples 1000 --detection-samples 200 \
+  --batch-size 64
+
+# 4. Results appear in ./results/
+cat results/metrics_report.md
+```
+
+#### Phase 4: Multi-Node Cluster on Airgapped Network
+
+```bash
+# Load image on ALL nodes first (step 3 above on each machine)
+
+# On master node:
+docker run -d --name spark-master --network host \
+  multi-model-inference:latest \
+  bash -c "pip install pyspark && python -c \"
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.master('spark://$(hostname -I | awk '{print $1}'):7077').getOrCreate()
+print('Master ready')
+import time; time.sleep(86400)
+\""
+
+# On worker nodes:
+MASTER_IP=<master-node-ip>
+docker run -d --name spark-worker --gpus all --network host --shm-size=4g \
+  -e SPARK_EXECUTOR_GPU=1 \
+  -e NVIDIA_VISIBLE_DEVICES=all \
+  multi-model-inference:latest \
+  python /app/benchmark/run_benchmark.py --mode all \
+  --signal-samples 50000 --image-samples 1000 --detection-samples 200 \
+  --batch-size 64 --partitions 4
+```
+
+### Code Updates Without Rebuilding (Airgapped)
+
+For iterative code changes (bug fixes, parameter tweaks) without rebuilding the full Docker image:
+
+```bash
+# On internet machine: package only the changed source
+tar czf code-update.tar.gz benchmark/ data/ inference/ models/ requirements.txt
+
+# Transfer code-update.tar.gz to airgapped system (~100 KB)
+
+# On airgapped system: run with bind mount over /app
+mkdir -p /opt/inference-platform
+tar xzf code-update.tar.gz -C /opt/inference-platform/
+
+docker run --rm --gpus all --shm-size=4g \
+  -v /opt/inference-platform:/app \
+  -v $(pwd)/results:/app/results \
+  -e PYSPARK_PYTHON=python \
+  multi-model-inference:latest \
+  python /app/benchmark/run_benchmark.py --mode single_gpu \
+  --signal-samples 50000 --batch-size 64
+```
+
+This uses the new code with the old Docker image's runtime (CUDA, PyTorch, Java) — no rebuild needed for code-only changes.
+
+### NVIDIA MPS for Multi-Process GPU Sharing (Cluster)
+
+On each GPU node in the airgapped cluster, enable MPS before starting Spark workers:
+
+```bash
+# Enable MPS daemon (run once per boot, or add to systemd)
+sudo nvidia-cuda-mps-control -d
+
+# Verify
+echo get_default_active_thread_percentage | nvidia-cuda-mps-control
+# Should output: 100
+```
+
+MPS allows multiple Spark executor processes to share one GPU without serializing at the CUDA context level. Without MPS, only one process can use the GPU at a time.
+
+### Verification Checklist (Airgapped)
+
+| Check | Command | Expected Output |
+|---|---|---|
+| Docker image loaded | `docker images \| grep multi-model` | Shows image with tag `latest` |
+| GPU visible in container | `docker run --rm --gpus all multi-model-inference:latest nvidia-smi` | Shows GPU name + memory |
+| Models load correctly | `docker run --rm multi-model-inference:latest python -c "from models import get_default_registry; r=get_default_registry(); r.summary()"` | Prints 10 models table |
+| Single GPU inference works | Run benchmark `--mode single_gpu` | Throughput > 0 |
+| Spark works | Run benchmark `--mode distributed` | Throughput > 0 |
+| Results generated | `ls results/` | `metrics_report.md` + `raw_results.json` |
+
+### Troubleshooting (Airgapped)
+
+| Problem | Cause | Fix |
+|---|---|---|
+| YOLO models using fallback CNN | Weights not baked in | Re-build image with weights in `models/weights/` |
+| `nvidia-smi` not found in container | Missing `--gpus all` flag | Add `--gpus all` to docker run |
+| Spark OOM on broadcast | Too much data for driver memory | Reduce `--image-samples` and `--detection-samples` |
+| Slow first run | Model weights being initialized | Normal — subsequent runs are faster (cached in memory) |
+| `Permission denied` on results dir | Volume mount permissions | `chmod 777 results/` on host before running |
