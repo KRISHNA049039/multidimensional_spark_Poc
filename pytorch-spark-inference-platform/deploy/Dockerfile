@@ -1,12 +1,12 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Install Python 3.11, Java 17
+# Install Python 3.11, Java 17, and utilities
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        software-properties-common wget gnupg && \
+        software-properties-common wget gnupg curl && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -18,6 +18,21 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+# Install Apache Spark 3.5.1
+ENV SPARK_VERSION=3.5.1
+ENV HADOOP_VERSION=3
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
+ENV PYSPARK_PYTHON=python
+ENV PYSPARK_DRIVER_PYTHON=python
+
+RUN wget -q "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" \
+        -O /tmp/spark.tgz && \
+    tar -xzf /tmp/spark.tgz -C /opt && \
+    mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} ${SPARK_HOME} && \
+    rm /tmp/spark.tgz
+
 WORKDIR /app
 
 # Python dependencies

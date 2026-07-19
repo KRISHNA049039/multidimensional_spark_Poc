@@ -81,7 +81,10 @@ def run_mode_distributed(models, model_classes, data, num_partitions=4, batch_si
     print("\n  [MODE 1] Distributed GPU — Spark RDD...")
     try:
         from inference.distributed_gpu import create_spark_session, run_distributed_gpu_inference
+        # Use cluster master if SPARK_MASTER env var is set (e.g. from spark-submit)
         spark = create_spark_session(num_cores="4")
+        master_used = spark.sparkContext.master
+        print(f"    Spark master: {master_used}")
         result = run_distributed_gpu_inference(
             spark, data, models, model_classes,
             num_partitions=num_partitions, batch_size=batch_size,
@@ -93,6 +96,8 @@ def run_mode_distributed(models, model_classes, data, num_partitions=4, batch_si
         return result
     except Exception as e:
         print(f"    [ERROR] Spark mode failed: {e}")
+        import traceback
+        traceback.print_exc()
         return {"mode": "distributed_gpu", "error": str(e)}
 
 
@@ -175,15 +180,15 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Model Inference Benchmark")
     parser.add_argument("--mode", choices=["all", "single_gpu", "hybrid", "distributed"],
                         default="all", help="Which inference mode to benchmark")
-    parser.add_argument("--signal-samples", type=int, default=10000,
+    parser.add_argument("--signal-samples", type=int, default=5000,
                         help="Number of signal samples per model")
-    parser.add_argument("--image-samples", type=int, default=500,
+    parser.add_argument("--image-samples", type=int, default=200,
                         help="Number of image samples (224x224)")
-    parser.add_argument("--detection-samples", type=int, default=100,
+    parser.add_argument("--detection-samples", type=int, default=50,
                         help="Number of detection images (640x640)")
     parser.add_argument("--batch-size", type=int, default=256,
                         help="Batch size for inference")
-    parser.add_argument("--partitions", type=int, default=4,
+    parser.add_argument("--partitions", type=int, default=2,
                         help="Spark partitions for distributed mode")
     args = parser.parse_args()
 

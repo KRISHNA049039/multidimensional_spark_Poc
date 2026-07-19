@@ -1,0 +1,8 @@
+deploy/aws-cdk/.venv
+deploy/aws-cdk/cdk.out
+deploy/aws-cdk/node_modules
+__pycache__
+*.pyc
+.git
+project.zip
+results/*.png

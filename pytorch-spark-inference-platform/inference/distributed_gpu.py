@@ -25,27 +25,57 @@ from typing import Dict, List, Tuple
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def create_spark_session(app_name="MultiModel_Distributed_GPU", num_cores="4"):
-    """Create SparkSession configured for distributed GPU inference."""
+def create_spark_session(app_name="MultiModel_Distributed_GPU", num_cores="4",
+                         master_url=None):
+    """Create SparkSession configured for distributed GPU inference.
+
+    Args:
+        app_name: Spark application name
+        num_cores: Number of cores for local mode (ignored if master_url is set)
+        master_url: Spark master URL (e.g. 'spark://10.0.0.187:7077').
+                    If None, checks SPARK_MASTER env var, then falls back to local[N].
+    """
     from pyspark.sql import SparkSession
 
-    spark = (
+    # Determine master: explicit arg > env var > local mode
+    if master_url is None:
+        master_url = os.environ.get("SPARK_MASTER_URL") or os.environ.get("SPARK_MASTER")
+    if not master_url:
+        master_url = f"local[{num_cores}]"
+
+    builder = (
         SparkSession.builder
         .appName(app_name)
-        .master(f"local[{num_cores}]")
-        .config("spark.driver.memory", "2g")
-        .config("spark.executor.memory", "2g")
-        .config("spark.driver.maxResultSize", "1g")
+        .master(master_url)
+        .config("spark.driver.memory", "10g")
+        .config("spark.executor.memory", "12g")
+        .config("spark.executor.cores", "2")
+        .config("spark.task.cpus", "2")
+        .config("spark.rpc.message.maxSize", "512")
+        .config("spark.driver.maxResultSize", "2g")
         .config("spark.network.timeout", "600s")
         .config("spark.executor.heartbeatInterval", "120s")
         .config("spark.python.worker.reuse", "true")
+        .config("spark.python.worker.memory", "1g")
         .config("spark.driver.extraJavaOptions",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED "
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "
                 "--add-opens=java.base/java.lang=ALL-UNNAMED "
                 "--add-opens=java.base/java.util=ALL-UNNAMED")
-        .getOrCreate()
     )
+
+    # When connecting to a cluster, set executor env so workers detect GPU
+    # and can find the app modules
+    if "local" not in master_url:
+        builder = (builder
+            .config("spark.executorEnv.SPARK_EXECUTOR_GPU", "1")
+            .config("spark.executorEnv.PYTHONPATH", "/app:/app/inference:/app/models:/app/data")
+            .config("spark.executorEnv.NVIDIA_VISIBLE_DEVICES", "all")
+            .config("spark.executorEnv.CUDA_VISIBLE_DEVICES", "0")
+            .config("spark.executorEnv.LD_LIBRARY_PATH", "/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu")
+        )
+
+    spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     return spark
 
@@ -97,56 +127,72 @@ def run_distributed_gpu_inference(
     """
     sc = spark.sparkContext
 
-    # Broadcast serialized model weights
+    # Broadcast only model weights (~75MB total) — small, same for all executors
     model_bytes_map = {}
     for name, model in models.items():
         model_bytes_map[name] = _serialize_model(model)
-
     bc_model_bytes = sc.broadcast(model_bytes_map)
-    bc_model_class_names = sc.broadcast({name: cls.__module__ + "." + cls.__name__
-                                          for name, cls in model_classes.items()})
     bc_batch_size = sc.broadcast(batch_size)
 
-    # Broadcast data chunks per partition per model
-    # For each model, chunk its data into num_partitions pieces
-    bc_data_chunks = {}
+    # For data distribution, we use a hybrid approach:
+    # - Small data (<100MB per partition): embed in RDD elements
+    # - Large data: save to /tmp as numpy files, pass file paths via RDD
+    # This avoids both broadcast limits AND task serialization limits.
+
     total_samples = {}
     for model_name, arr in data.items():
-        n = len(arr)
-        total_samples[model_name] = n
-        chunk_size = n // num_partitions
-        chunks = []
-        for i in range(num_partitions):
-            start = i * chunk_size
-            end = start + chunk_size if i < num_partitions - 1 else n
-            chunks.append(arr[start:end].copy())
-        bc_data_chunks[model_name] = sc.broadcast(chunks)
+        total_samples[model_name] = len(arr)
 
-    bc_total_samples = sc.broadcast(total_samples)
+    # Calculate total data size per partition
+    total_data_bytes = sum(arr.nbytes for arr in data.values())
+    per_partition_bytes = total_data_bytes / num_partitions
 
-    # Create lightweight index RDD
-    index_rdd = sc.parallelize(range(num_partitions), num_partitions)
+    # Always embed data directly in RDD elements.
+    # spark.rpc.message.maxSize is set to 512MB to handle large partitions.
+    partition_data = []
+    for i in range(num_partitions):
+        chunk_dict = {}
+        for model_name, arr in data.items():
+            n = len(arr)
+            total_samples[model_name] = n
+            chunk_size = n // num_partitions
+            start_idx = i * chunk_size
+            end_idx = start_idx + chunk_size if i < num_partitions - 1 else n
+            chunk_dict[model_name] = arr[start_idx:end_idx].copy()
+        partition_data.append((i, chunk_dict))
+    data_rdd = sc.parallelize(partition_data, num_partitions)
 
-    def infer_on_partition(partition_idx):
+    def infer_on_partition(item):
         """
         Worker function: load models, run inference on data chunk.
-        In cluster mode with MPS: each executor gets its own GPU context.
-        In local mode: uses CPU to avoid thread/GPU contention.
+        Data is embedded directly in the RDD element.
         """
+        partition_idx, data_chunk = item
+        import sys
+        import os
         import torch
         import numpy as np
 
-        # Determine device (CPU in local mode, GPU in cluster)
-        if torch.cuda.is_available() and os.environ.get("SPARK_EXECUTOR_GPU", "0") == "1":
+        # Ensure app modules are importable on the executor
+        for p in ["/app", "/app/inference", "/app/models", "/app/data"]:
+            if p not in sys.path:
+                sys.path.insert(0, p)
+
+        # Determine device
+        if torch.cuda.is_available():
             device = "cuda"
         else:
             device = "cpu"
 
-        # Deserialize all models
+        import socket
+        hostname = socket.gethostname()
+        print(f"[Executor] partition={partition_idx}, host={hostname}, "
+              f"cuda={torch.cuda.is_available()}, device={device}")
+
+        # Deserialize models
         model_bytes = bc_model_bytes.value
         loaded_models = {}
 
-        # Import model classes dynamically
         from models.ew_signal_model import EWSignalClassifier
         from models.yolo_model import YOLOv8Nano, YOLOv8Small
         from models.image_models import ResNet18Classifier, MobileNetV3Classifier, EfficientNetB0Classifier
@@ -172,16 +218,11 @@ def run_distributed_gpu_inference(
         bs = bc_batch_size.value
         results = {}
 
-        # Run inference for each model on its data chunk
         for model_name, model in loaded_models.items():
-            if model_name not in bc_data_chunks:
+            if model_name not in data_chunk:
                 continue
 
-            chunks = bc_data_chunks[model_name].value
-            if partition_idx >= len(chunks):
-                continue
-
-            chunk = chunks[partition_idx]
+            chunk = data_chunk[model_name]
             n_samples = len(chunk)
             num_outputs = 0
 
@@ -199,7 +240,7 @@ def run_distributed_gpu_inference(
 
     # Execute distributed inference
     start_time = time.time()
-    partition_results = index_rdd.map(infer_on_partition).collect()
+    partition_results = data_rdd.map(infer_on_partition).collect()
     elapsed_time = time.time() - start_time
 
     # Aggregate results
@@ -213,8 +254,6 @@ def run_distributed_gpu_inference(
 
     # Cleanup
     bc_model_bytes.unpersist()
-    for bc in bc_data_chunks.values():
-        bc.unpersist()
 
     return {
         "mode": "distributed_gpu",
