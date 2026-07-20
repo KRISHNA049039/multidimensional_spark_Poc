@@ -1,39 +1,88 @@
-# Cluster mode — multi-node Spark with GPU workers
-# Usage: docker compose -f deploy/docker-compose.cluster.yml up
+# =============================================================================
+# Spark Inference Cluster — Windows Docker Desktop
+# =============================================================================
+# Supports 3 device modes: cpu_only, gpu_only, hybrid
+# Workers connect to master by service name (Docker bridge network)
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.cluster.yml up
+#
+# Scale workers:
+#   docker compose -f deploy/docker-compose.cluster.yml up --scale spark-cpu-worker=3 --scale spark-gpu-worker=2
+#
+# Run benchmarks (from another terminal):
+#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode cpu_only --partitions 4 --signal-samples 5000"
+#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 2 --signal-samples 1000"
+#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode hybrid --partitions 4 --signal-samples 5000"
+#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --incremental"
+#
+# Cleanup:
+#   docker compose -f deploy/docker-compose.cluster.yml down
+# =============================================================================
+
 services:
   spark-master:
     image: multi-model-inference:latest
     container_name: spark-master
-    network_mode: host
     environment:
       - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
     command: >
       bash -c "
-        $$SPARK_HOME/sbin/start-master.sh &&
+        $$SPARK_HOME/sbin/start-master.sh -h spark-master &&
         tail -f $$SPARK_HOME/logs/*master*
       "
     ports:
       - "7077:7077"
       - "8080:8080"
       - "4040:4040"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  spark-worker:
+  # --- CPU Workers (scale with --scale spark-cpu-worker=N) ---
+  spark-cpu-worker:
     image: multi-model-inference:latest
-    runtime: nvidia
-    network_mode: host
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER=spark://localhost:7077
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - SPARK_EXECUTOR_GPU=1
-    shm_size: '4g'
+      - SPARK_MASTER=spark://spark-master:7077
     command: >
       bash -c "
-        $$SPARK_HOME/sbin/start-worker.sh spark://localhost:7077 -c 4 -m 8g &&
+        sleep 5 &&
+        $$SPARK_HOME/sbin/start-worker.sh spark://spark-master:7077 -c 2 -m 4g &&
         tail -f $$SPARK_HOME/logs/*worker*
       "
     deploy:
       replicas: 2
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
+
+  # --- GPU Workers (scale with --scale spark-gpu-worker=N) ---
+  spark-gpu-worker:
+    image: multi-model-inference:latest
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    shm_size: '4g'
+    command: >
+      bash -c "
+        sleep 5 &&
+        $$SPARK_HOME/sbin/start-worker.sh spark://spark-master:7077 -c 4 -m 8g &&
+        tail -f $$SPARK_HOME/logs/*worker*
+      "
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      spark-master:
+        condition: service_healthy
