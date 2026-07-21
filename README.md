@@ -504,3 +504,29 @@ For a comprehensive comparison of available RF datasets, see [panoradio-sdr.de](
 | Deployment | Docker / spark-submit | Kubernetes, YARN, edge devices |
 
 The model and data are **purpose-built for this PoC** — they demonstrate that the Spark-distributed inference architecture works correctly and at scale. Swapping in a real dataset and more complex model requires only changing the model class and data loader; the entire Spark distribution, broadcasting, and inference pipeline remains unchanged.
+
+
+
+On each air-gapped node, copy the weights to the torch cache:
+
+bash
+
+# On each of 5 nodes:
+mkdir -p /root/.cache/torch/hub/checkpoints
+cp /mnt/usb/model-weights/*.pth /root/.cache/torch/hub/checkpoints/
+That's it. When you run the benchmark (with or without Docker), PyTorch finds them there automatically. No code changes needed.
+
+If using Docker, mount instead:
+
+bash
+
+# Place weights on each node
+mkdir -p /opt/model-weights
+cp /mnt/usb/model-weights/*.pth /opt/model-weights/
+
+# Start container with mount
+docker run -d --name spark-worker --network host --gpus all \
+  -v /opt/model-weights:/root/.cache/torch/hub/checkpoints \
+  multi-model-inference:latest \
+  bash -c "start-worker.sh spark://192.168.1.10:7077 -c 8 -m 200g && tail -f /opt/spark/logs/*worker*"
+If running natively (no Docker) — even simpler, just copy the files and run python directly.
