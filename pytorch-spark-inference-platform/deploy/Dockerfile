@@ -44,4 +44,10 @@ RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url http
 COPY . .
 RUN mkdir -p results
 
+# Copy pre-downloaded model weights to torch cache (for air-gapped deployment)
+RUN mkdir -p /root/.cache/torch/hub/checkpoints
+COPY models/weights/resnet18-f37072fd.pth /root/.cache/torch/hub/checkpoints/
+COPY models/weights/mobilenet_v3_small-047dcff4.pth /root/.cache/torch/hub/checkpoints/
+COPY models/weights/efficientnet_b0_rwightman-7f5810bc.pth /root/.cache/torch/hub/checkpoints/
+
 CMD ["python", "benchmark/run_benchmark.py"]
