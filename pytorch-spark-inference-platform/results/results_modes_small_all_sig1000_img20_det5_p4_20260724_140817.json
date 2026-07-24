@@ -1,0 +1,130 @@
+{
+  "system_info": {
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python": "3.11.15",
+    "torch": "2.2.0+cu121",
+    "cpu_cores": 20,
+    "cuda": false,
+    "gpu_name": "N/A",
+    "gpu_memory_gb": "N/A",
+    "gpu_count": 0,
+    "timestamp": "2026-07-24T14:08:00.836910"
+  },
+  "config": {
+    "signal_samples": 1000,
+    "image_samples": 20,
+    "detection_samples": 5,
+    "batch_size": 64,
+    "partitions": 4
+  },
+  "models": {
+    "ew_classifier": {
+      "category": "signal",
+      "memory_mb": 50
+    },
+    "signal_denoiser": {
+      "category": "signal",
+      "memory_mb": 100
+    },
+    "threat_prioritizer": {
+      "category": "signal",
+      "memory_mb": 350
+    },
+    "rf_fingerprinter": {
+      "category": "signal",
+      "memory_mb": 120
+    },
+    "anomaly_detector": {
+      "category": "signal",
+      "memory_mb": 100
+    },
+    "resnet18": {
+      "category": "image_classification",
+      "memory_mb": 300
+    },
+    "mobilenetv3": {
+      "category": "image_classification",
+      "memory_mb": 150
+    },
+    "efficientnet_b0": {
+      "category": "image_classification",
+      "memory_mb": 200
+    },
+    "yolov8_nano": {
+      "category": "object_detection",
+      "memory_mb": 200
+    },
+    "yolov8_small": {
+      "category": "object_detection",
+      "memory_mb": 400
+    }
+  },
+  "single_gpu": {
+    "mode": "single_gpu",
+    "device": "cpu",
+    "elapsed_time": 0.6931,
+    "total_samples_processed": 5070,
+    "total_throughput": 7315.0,
+    "per_model_processed": {
+      "ew_classifier": 1000,
+      "signal_denoiser": 1000,
+      "threat_prioritizer": 1000,
+      "rf_fingerprinter": 1000,
+      "anomaly_detector": 1000,
+      "resnet18": 20,
+      "mobilenetv3": 20,
+      "efficientnet_b0": 20,
+      "yolov8_nano": 5,
+      "yolov8_small": 5
+    },
+    "num_models": 10,
+    "num_batches": 16,
+    "batch_size": 64,
+    "avg_batch_latency_ms": 43.32,
+    "p99_batch_latency_ms": 494.54
+  },
+  "hybrid_cpu_gpu": {
+    "mode": "hybrid_cpu_gpu",
+    "elapsed_time": 0.6662,
+    "total_samples_processed": 5070,
+    "total_throughput": 7610.2,
+    "per_model_processed": {
+      "ew_classifier": 1000,
+      "signal_denoiser": 1000,
+      "threat_prioritizer": 1000,
+      "rf_fingerprinter": 1000,
+      "anomaly_detector": 1000,
+      "resnet18": 20,
+      "mobilenetv3": 20,
+      "efficientnet_b0": 20,
+      "yolov8_nano": 5,
+      "yolov8_small": 5
+    },
+    "num_models": 10,
+    "gpu_models": [],
+    "cpu_models": [
+      "ew_classifier",
+      "signal_denoiser",
+      "threat_prioritizer",
+      "rf_fingerprinter",
+      "anomaly_detector",
+      "resnet18",
+      "mobilenetv3",
+      "efficientnet_b0",
+      "yolov8_nano",
+      "yolov8_small"
+    ],
+    "num_on_gpu": 0,
+    "num_on_cpu": 10,
+    "strategy": "priority",
+    "batch_size": 64,
+    "num_batches": 16,
+    "avg_batch_latency_ms": 41.64,
+    "p99_batch_latency_ms": 466.74
+  },
+  "distributed_gpu": {
+    "mode": "distributed_gpu",
+    "error": "An error occurred while calling z:org.apache.spark.api.python.PythonRDD.collectAndServe.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 0 in stage 0.0 failed 4 times, most recent failure: Lost task 0.3 in stage 0.0 (TID 8) (172.19.0.5 executor 1): org.apache.spark.api.python.PythonException: Traceback (most recent call last):\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/worker.py\", line 1247, in main\n    process()\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/worker.py\", line 1239, in process\n    serializer.dump_stream(out_iter, outfile)\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/serializers.py\", line 274, in dump_stream\n    vs = list(itertools.islice(iterator, batch))\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/util.py\", line 83, in wrapper\n    return f(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^\n  File \"/app/inference/distributed_gpu.py\", line 245, in infer_on_partition\n    output = model(batch_tensor)\n             ^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/models/ew_signal_model.py\", line 34, in forward\n    return self.classifier(self.feature_extractor(x))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/container.py\", line 217, in forward\n    input = module(input)\n            ^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/batchnorm.py\", line 175, in forward\n    return F.batch_norm(\n           ^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/functional.py\", line 2482, in batch_norm\n    return torch.batch_norm(\n           ^^^^^^^^^^^^^^^^^\nRuntimeError: CUDA error: no kernel image is available for execution on the device\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BLOCKING=1.\nCompile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.\n\n\n\tat org.apache.spark.api.python.BasePythonRunner$ReaderIterator.handlePythonException(PythonRunner.scala:572)\n\tat org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:784)\n\tat org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:766)\n\tat org.apache.spark.api.python.BasePythonRunner$ReaderIterator.hasNext(PythonRunner.scala:525)\n\tat org.apache.spark.InterruptibleIterator.hasNext(InterruptibleIterator.scala:37)\n\tat scala.collection.Iterator.foreach(Iterator.scala:943)\n\tat scala.collection.Iterator.foreach$(Iterator.scala:943)\n\tat org.apache.spark.InterruptibleIterator.foreach(InterruptibleIterator.scala:28)\n\tat scala.collection.generic.Growable.$plus$plus$eq(Growable.scala:62)\n\tat scala.collection.generic.Growable.$plus$plus$eq$(Growable.scala:53)\n\tat scala.collection.mutable.ArrayBuffer.$plus$plus$eq(ArrayBuffer.scala:105)\n\tat scala.collection.mutable.ArrayBuffer.$plus$plus$eq(ArrayBuffer.scala:49)\n\tat scala.collection.TraversableOnce.to(TraversableOnce.scala:366)\n\tat scala.collection.TraversableOnce.to$(TraversableOnce.scala:364)\n\tat org.apache.spark.InterruptibleIterator.to(InterruptibleIterator.scala:28)\n\tat scala.collection.TraversableOnce.toBuffer(TraversableOnce.scala:358)\n\tat scala.collection.TraversableOnce.toBuffer$(TraversableOnce.scala:358)\n\tat org.apache.spark.InterruptibleIterator.toBuffer(InterruptibleIterator.scala:28)\n\tat scala.collection.TraversableOnce.toArray(TraversableOnce.scala:345)\n\tat scala.collection.TraversableOnce.toArray$(TraversableOnce.scala:339)\n\tat org.apache.spark.InterruptibleIterator.toArray(InterruptibleIterator.scala:28)\n\tat org.apache.spark.rdd.RDD.$anonfun$collect$2(RDD.scala:1049)\n\tat org.apache.spark.SparkContext.$anonfun$runJob$5(SparkContext.scala:2438)\n\tat org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:93)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)\n\tat org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)\n\tat org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\tat java.base/java.lang.Thread.run(Thread.java:840)\n\nDriver stacktrace:\n\tat org.apache.spark.scheduler.DAGScheduler.failJobAndIndependentStages(DAGScheduler.scala:2856)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2(DAGScheduler.scala:2792)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2$adapted(DAGScheduler.scala:2791)\n\tat scala.collection.mutable.ResizableArray.foreach(ResizableArray.scala:62)\n\tat scala.collection.mutable.ResizableArray.foreach$(ResizableArray.scala:55)\n\tat scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:49)\n\tat org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:2791)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1(DAGScheduler.scala:1247)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1$adapted(DAGScheduler.scala:1247)\n\tat scala.Option.foreach(Option.scala:407)\n\tat org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:1247)\n\tat org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:3060)\n\tat org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2994)\n\tat org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2983)\n\tat org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:49)\n\tat org.apache.spark.scheduler.DAGScheduler.runJob(DAGScheduler.scala:989)\n\tat org.apache.spark.SparkContext.runJob(SparkContext.scala:2398)\n\tat org.apache.spark.SparkContext.runJob(SparkContext.scala:2419)\n\tat org.apache.spark.SparkContext.runJob(SparkContext.scala:2438)\n\tat org.apache.spark.SparkContext.runJob(SparkContext.scala:2463)\n\tat org.apache.spark.rdd.RDD.$anonfun$collect$1(RDD.scala:1049)\n\tat org.apache.spark.rdd.RDDOperationScope$.withScope(RDDOperationScope.scala:151)\n\tat org.apache.spark.rdd.RDDOperationScope$.withScope(RDDOperationScope.scala:112)\n\tat org.apache.spark.rdd.RDD.withScope(RDD.scala:410)\n\tat org.apache.spark.rdd.RDD.collect(RDD.scala:1048)\n\tat org.apache.spark.api.python.PythonRDD$.collectAndServe(PythonRDD.scala:195)\n\tat org.apache.spark.api.python.PythonRDD.collectAndServe(PythonRDD.scala)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:569)\n\tat py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)\n\tat py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:374)\n\tat py4j.Gateway.invoke(Gateway.java:282)\n\tat py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)\n\tat py4j.commands.CallCommand.execute(CallCommand.java:79)\n\tat py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:182)\n\tat py4j.ClientServerConnection.run(ClientServerConnection.java:106)\n\tat java.base/java.lang.Thread.run(Thread.java:840)\nCaused by: org.apache.spark.api.python.PythonException: Traceback (most recent call last):\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/worker.py\", line 1247, in main\n    process()\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/worker.py\", line 1239, in process\n    serializer.dump_stream(out_iter, outfile)\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/serializers.py\", line 274, in dump_stream\n    vs = list(itertools.islice(iterator, batch))\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/spark/python/lib/pyspark.zip/pyspark/util.py\", line 83, in wrapper\n    return f(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^\n  File \"/app/inference/distributed_gpu.py\", line 245, in infer_on_partition\n    output = model(batch_tensor)\n             ^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/models/ew_signal_model.py\", line 34, in forward\n    return self.classifier(self.feature_extractor(x))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/container.py\", line 217, in forward\n    input = module(input)\n            ^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/module.py\", line 1520, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/modules/batchnorm.py\", line 175, in forward\n    return F.batch_norm(\n           ^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/dist-packages/torch/nn/functional.py\", line 2482, in batch_norm\n    return torch.batch_norm(\n           ^^^^^^^^^^^^^^^^^\nRuntimeError: CUDA error: no kernel image is available for execution on the device\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BLOCKING=1.\nCompile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.\n\n\n\tat org.apache.spark.api.python.BasePythonRunner$ReaderIterator.handlePythonException(PythonRunner.scala:572)\n\tat org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:784)\n\tat org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:766)\n\tat org.apache.spark.api.python.BasePythonRunner$ReaderIterator.hasNext(PythonRunner.scala:525)\n\tat org.apache.spark.InterruptibleIterator.hasNext(InterruptibleIterator.scala:37)\n\tat scala.collection.Iterator.foreach(Iterator.scala:943)\n\tat scala.collection.Iterator.foreach$(Iterator.scala:943)\n\tat org.apache.spark.InterruptibleIterator.foreach(InterruptibleIterator.scala:28)\n\tat scala.collection.generic.Growable.$plus$plus$eq(Growable.scala:62)\n\tat scala.collection.generic.Growable.$plus$plus$eq$(Growable.scala:53)\n\tat scala.collection.mutable.ArrayBuffer.$plus$plus$eq(ArrayBuffer.scala:105)\n\tat scala.collection.mutable.ArrayBuffer.$plus$plus$eq(ArrayBuffer.scala:49)\n\tat scala.collection.TraversableOnce.to(TraversableOnce.scala:366)\n\tat scala.collection.TraversableOnce.to$(TraversableOnce.scala:364)\n\tat org.apache.spark.InterruptibleIterator.to(InterruptibleIterator.scala:28)\n\tat scala.collection.TraversableOnce.toBuffer(TraversableOnce.scala:358)\n\tat scala.collection.TraversableOnce.toBuffer$(TraversableOnce.scala:358)\n\tat org.apache.spark.InterruptibleIterator.toBuffer(InterruptibleIterator.scala:28)\n\tat scala.collection.TraversableOnce.toArray(TraversableOnce.scala:345)\n\tat scala.collection.TraversableOnce.toArray$(TraversableOnce.scala:339)\n\tat org.apache.spark.InterruptibleIterator.toArray(InterruptibleIterator.scala:28)\n\tat org.apache.spark.rdd.RDD.$anonfun$collect$2(RDD.scala:1049)\n\tat org.apache.spark.SparkContext.$anonfun$runJob$5(SparkContext.scala:2438)\n\tat org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:93)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)\n\tat org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)\n\tat org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\t... 1 more\n"
+  },
+  "total_benchmark_time": 16.12
+}

@@ -47,10 +47,10 @@ def create_spark_session(app_name="MultiModel_Distributed_GPU", num_cores="4",
         SparkSession.builder
         .appName(app_name)
         .master(master_url)
-        .config("spark.driver.memory", "10g")
-        .config("spark.executor.memory", "12g")
+        .config("spark.driver.memory", "4g")
+        .config("spark.executor.memory", "2g")
         .config("spark.executor.cores", "2")
-        .config("spark.task.cpus", "2")
+        .config("spark.task.cpus", "1")
         .config("spark.rpc.message.maxSize", "512")
         .config("spark.driver.maxResultSize", "2g")
         .config("spark.network.timeout", "600s")
@@ -165,11 +165,12 @@ def run_distributed_gpu_inference(
     def infer_on_partition(item):
         """
         Worker function: load models, run inference on data chunk.
-        Data is embedded directly in the RDD element.
+        Returns detailed stats: executor info, per-model timing, input/output shapes.
         """
         partition_idx, data_chunk = item
         import sys
         import os
+        import time as _time
         import torch
         import numpy as np
 
@@ -181,15 +182,19 @@ def run_distributed_gpu_inference(
         # Determine device
         if torch.cuda.is_available():
             device = "cuda"
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_memory_mb = torch.cuda.get_device_properties(0).total_memory / 1e6
         else:
             device = "cpu"
+            gpu_name = "N/A"
+            gpu_memory_mb = 0
 
         import socket
         hostname = socket.gethostname()
-        print(f"[Executor] partition={partition_idx}, host={hostname}, "
-              f"cuda={torch.cuda.is_available()}, device={device}")
+        executor_id = f"{hostname}:{os.getpid()}"
 
         # Deserialize models
+        model_load_start = _time.time()
         model_bytes = bc_model_bytes.value
         loaded_models = {}
 
@@ -215,8 +220,11 @@ def run_distributed_gpu_inference(
             if name in class_map:
                 loaded_models[name] = _deserialize_model(class_map[name], mbytes, device)
 
+        model_load_time = _time.time() - model_load_start
+
         bs = bc_batch_size.value
-        results = {}
+        model_results = {}
+        total_inference_start = _time.time()
 
         for model_name, model in loaded_models.items():
             if model_name not in data_chunk:
@@ -225,18 +233,53 @@ def run_distributed_gpu_inference(
             chunk = data_chunk[model_name]
             n_samples = len(chunk)
             num_outputs = 0
+            input_shape = list(chunk.shape[1:]) if len(chunk.shape) > 1 else [chunk.shape[-1] if len(chunk.shape) == 1 else 0]
+            output_shape = None
 
+            model_start = _time.time()
             with torch.no_grad():
                 for start in range(0, n_samples, bs):
                     end = min(start + bs, n_samples)
                     batch_np = chunk[start:end]
                     batch_tensor = torch.from_numpy(batch_np).float().to(device)
-                    _ = model(batch_tensor)
+                    output = model(batch_tensor)
+                    if output_shape is None:
+                        output_shape = list(output.shape[1:]) if len(output.shape) > 1 else [output.shape[0]]
                     num_outputs += (end - start)
+            model_elapsed = _time.time() - model_start
 
-            results[model_name] = num_outputs
+            model_results[model_name] = {
+                "samples_processed": num_outputs,
+                "inference_time_sec": round(model_elapsed, 4),
+                "throughput": round(num_outputs / model_elapsed, 1) if model_elapsed > 0 else 0,
+                "input_shape": input_shape,
+                "output_shape": output_shape,
+                "batches": (n_samples + bs - 1) // bs,
+            }
 
-        return results
+        total_inference_time = _time.time() - total_inference_start
+        total_samples = sum(r["samples_processed"] for r in model_results.values())
+
+        return {
+            "partition_idx": partition_idx,
+            "executor": {
+                "id": executor_id,
+                "hostname": hostname,
+                "pid": os.getpid(),
+                "device": device,
+                "gpu_name": gpu_name,
+                "gpu_memory_mb": round(gpu_memory_mb, 0),
+                "cpu_count": os.cpu_count(),
+            },
+            "timing": {
+                "model_load_time_sec": round(model_load_time, 4),
+                "total_inference_time_sec": round(total_inference_time, 4),
+                "total_task_time_sec": round(model_load_time + total_inference_time, 4),
+            },
+            "models_run": len(model_results),
+            "total_samples_processed": total_samples,
+            "per_model": model_results,
+        }
 
     # Execute distributed inference
     start_time = time.time()
@@ -246,11 +289,42 @@ def run_distributed_gpu_inference(
     # Aggregate results
     total_processed = {}
     for pr in partition_results:
-        for name, count in pr.items():
-            total_processed[name] = total_processed.get(name, 0) + count
+        for name, info in pr["per_model"].items():
+            total_processed[name] = total_processed.get(name, 0) + info["samples_processed"]
 
     total_all = sum(total_processed.values())
     throughput = total_all / elapsed_time
+
+    # Capture Spark UI stats
+    spark_ui_stats = {}
+    try:
+        import urllib.request
+        import json as _json
+        apps = _json.loads(urllib.request.urlopen("http://localhost:4040/api/v1/applications", timeout=3).read())
+        if apps:
+            app_id = apps[0]["id"]
+            spark_ui_stats["app_id"] = app_id
+            spark_ui_stats["app_name"] = apps[0].get("name", "")
+            try:
+                jobs = _json.loads(urllib.request.urlopen(
+                    f"http://localhost:4040/api/v1/applications/{app_id}/jobs", timeout=3).read())
+                spark_ui_stats["jobs"] = jobs
+            except:
+                pass
+            try:
+                stages = _json.loads(urllib.request.urlopen(
+                    f"http://localhost:4040/api/v1/applications/{app_id}/stages", timeout=3).read())
+                spark_ui_stats["stages"] = stages
+            except:
+                pass
+            try:
+                executors = _json.loads(urllib.request.urlopen(
+                    f"http://localhost:4040/api/v1/applications/{app_id}/allexecutors", timeout=3).read())
+                spark_ui_stats["executors"] = executors
+            except:
+                pass
+    except:
+        pass
 
     # Cleanup
     bc_model_bytes.unpersist()
@@ -263,4 +337,6 @@ def run_distributed_gpu_inference(
         "per_model_processed": total_processed,
         "num_partitions": num_partitions,
         "num_models": len(models),
+        "partition_details": partition_results,
+        "spark_ui_stats": spark_ui_stats,
     }

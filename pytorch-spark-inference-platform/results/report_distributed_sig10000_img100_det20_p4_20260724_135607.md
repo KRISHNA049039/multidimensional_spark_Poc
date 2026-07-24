@@ -1,6 +1,6 @@
 # Multi-Model Distributed Inference — Performance Metrics
 
-**Generated:** 2026-07-24T13:03:40.309669
+**Generated:** 2026-07-24T13:55:42.085018
 
 ## System
 
@@ -10,9 +10,9 @@
 | Python | 3.11.15 |
 | PyTorch | 2.2.0+cu121 |
 | CPU Cores | 20 |
-| GPU | N/A (N/A GB) |
-| GPU Count | 0 |
-| CUDA | False |
+| GPU | NVIDIA GeForce RTX 5060 (8.5 GB) |
+| GPU Count | 1 |
+| CUDA | True |
 
 ## Models (10)
 
@@ -33,22 +33,12 @@
 
 | Mode | Total Throughput | Time (sec) | Models on GPU | Models on CPU |
 |------|-----------------|------------|---------------|---------------|
-| distributed_gpu | 1,619 samples/sec | 31.09 | 10 | 0 |
+| distributed_gpu | ERROR | - | - | - |
 
 ## Per-Model Processing (samples)
 
 | Model | Single GPU | Hybrid | Distributed |
 |-------|-----------|--------|-------------|
-| anomaly_detector | - | - | 10000 |
-| efficientnet_b0 | - | - | 100 |
-| ew_classifier | - | - | 10000 |
-| mobilenetv3 | - | - | 100 |
-| resnet18 | - | - | 100 |
-| rf_fingerprinter | - | - | 10000 |
-| signal_denoiser | - | - | 10000 |
-| threat_prioritizer | - | - | 10000 |
-| yolov8_nano | - | - | 20 |
-| yolov8_small | - | - | 20 |
 
 ## Recommendations
 

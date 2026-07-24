@@ -11,10 +11,9 @@
 #   docker compose -f deploy/docker-compose.cluster.yml up --scale spark-cpu-worker=3 --scale spark-gpu-worker=2
 #
 # Run benchmarks (from another terminal):
-#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode cpu_only --partitions 4 --signal-samples 5000"
-#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 2 --signal-samples 1000"
-#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --device-mode hybrid --partitions 4 --signal-samples 5000"
-#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 python benchmark/cluster_benchmark.py --incremental"
+#   docker exec -it spark-master bash -c "SPARK_MASTER_URL=spark://spark-master:7077 CUDA_VISIBLE_DEVICES='' python benchmark/run_benchmark.py --mode distributed --signal-samples 10000 --partitions 4"
+#
+# Results are written to ./results/ on your host (volume mounted)
 #
 # Cleanup:
 #   docker compose -f deploy/docker-compose.cluster.yml down
@@ -27,6 +26,14 @@ services:
     environment:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=spark-master
+      - CUDA_VISIBLE_DEVICES=
+      - SPARK_DRIVER_MEMORY=8g
+    volumes:
+      - ../results:/app/results
+      - ../benchmark:/app/benchmark
+      - ../inference:/app/inference
+      - ../models:/app/models
+      - ../data:/app/data
     command: >
       bash -c "
         $$SPARK_HOME/sbin/start-master.sh -h spark-master &&
@@ -48,6 +55,13 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://spark-master:7077
+      - CUDA_VISIBLE_DEVICES=
+    volumes:
+      - ../results:/app/results
+      - ../benchmark:/app/benchmark
+      - ../inference:/app/inference
+      - ../models:/app/models
+      - ../data:/app/data
     command: >
       bash -c "
         sleep 5 &&
@@ -60,15 +74,22 @@ services:
       spark-master:
         condition: service_healthy
 
-  # --- GPU Workers (scale with --scale spark-gpu-worker=N) ---
+  # --- GPU Workers ---
+  # NOTE: GPU disabled until image is rebuilt with PyTorch 2.6+ (sm_120 support)
+  # After rebuild: remove CUDA_VISIBLE_DEVICES and uncomment deploy.resources
   spark-gpu-worker:
     image: multi-model-inference:latest
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://spark-master:7077
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=
     shm_size: '4g'
+    volumes:
+      - ../results:/app/results
+      - ../benchmark:/app/benchmark
+      - ../inference:/app/inference
+      - ../models:/app/models
+      - ../data:/app/data
     command: >
       bash -c "
         sleep 5 &&
@@ -77,12 +98,6 @@ services:
       "
     deploy:
       replicas: 1
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     depends_on:
       spark-master:
         condition: service_healthy

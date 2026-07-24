@@ -90,9 +90,118 @@ def run_mode_distributed(models, model_classes, data, num_partitions=4, batch_si
             num_partitions=num_partitions, batch_size=batch_size,
         )
         spark.stop()
-        print(f"    Throughput: {result['total_throughput']:,.0f} total samples/sec")
-        print(f"    Partitions: {result['num_partitions']}")
-        print(f"    Time: {result['elapsed_time']:.2f}s")
+
+        # Print detailed results
+        print(f"\n{'─' * 70}")
+        print(f"  DISTRIBUTED INFERENCE RESULTS")
+        print(f"{'─' * 70}")
+        print(f"  Total Throughput : {result['total_throughput']:,.0f} samples/sec")
+        print(f"  Total Samples    : {result['total_samples_processed']:,}")
+        print(f"  Elapsed Time     : {result['elapsed_time']:.2f}s")
+        print(f"  Partitions       : {result['num_partitions']}")
+        print(f"  Models           : {result['num_models']}")
+
+        # Job description
+        print(f"\n  JOB COMPOSITION:")
+        print(f"  ─────────────────────────────────────────────────────────")
+        print(f"  Job: Distributed inference of {result['num_models']} ML models")
+        print(f"  Stages: 1 (parallelize → map → collect)")
+        print(f"  Tasks: {result['num_partitions']} (one per partition)")
+        print(f"  Each task: Load 10 models → run inference on data chunk → return results")
+
+        # Executor / Worker details
+        if result.get("partition_details"):
+            print(f"\n  EXECUTOR / WORKER DETAIL:")
+            print(f"  {'─' * 70}")
+            print(f"  {'Part':<5} {'Hostname':<20} {'Device':<6} {'GPU':<20} "
+                  f"{'ModelLoad':<10} {'Inference':<10} {'Samples'}")
+            print(f"  {'─' * 70}")
+            for pd in result["partition_details"]:
+                ex = pd["executor"]
+                tm = pd["timing"]
+                print(f"  {pd['partition_idx']:<5} {ex['hostname']:<20} {ex['device']:<6} "
+                      f"{ex['gpu_name'][:18]:<20} "
+                      f"{tm['model_load_time_sec']:<10.2f} "
+                      f"{tm['total_inference_time_sec']:<10.2f} "
+                      f"{pd['total_samples_processed']}")
+            print(f"  {'─' * 70}")
+
+            # Unique executors summary
+            executors = {}
+            for pd in result["partition_details"]:
+                eid = pd["executor"]["hostname"]
+                if eid not in executors:
+                    executors[eid] = {
+                        "device": pd["executor"]["device"],
+                        "gpu": pd["executor"]["gpu_name"],
+                        "cpu_count": pd["executor"]["cpu_count"],
+                        "partitions_handled": 0,
+                        "total_samples": 0,
+                    }
+                executors[eid]["partitions_handled"] += 1
+                executors[eid]["total_samples"] += pd["total_samples_processed"]
+
+            print(f"\n  WORKER SUMMARY ({len(executors)} unique workers):")
+            print(f"  {'─' * 70}")
+            print(f"  {'Worker':<20} {'Device':<6} {'CPUs':<5} {'Tasks':<6} {'Samples':<10} {'GPU'}")
+            print(f"  {'─' * 70}")
+            for host, info in executors.items():
+                print(f"  {host:<20} {info['device']:<6} {info['cpu_count']:<5} "
+                      f"{info['partitions_handled']:<6} {info['total_samples']:<10,} "
+                      f"{info['gpu']}")
+            print(f"  {'─' * 70}")
+
+        # Per-model input/output and throughput
+        if result.get("partition_details"):
+            # Get model info from first partition
+            first_partition = result["partition_details"][0]
+            print(f"\n  MODEL INPUT/OUTPUT & THROUGHPUT:")
+            print(f"  {'─' * 70}")
+            print(f"  {'Model':<22} {'Input Shape':<15} {'Output Shape':<15} "
+                  f"{'Samples':<8} {'Throughput'}")
+            print(f"  {'─' * 70}")
+            for model_name, info in first_partition["per_model"].items():
+                # Aggregate across all partitions
+                total_samples = sum(
+                    pd["per_model"].get(model_name, {}).get("samples_processed", 0)
+                    for pd in result["partition_details"]
+                )
+                total_time = sum(
+                    pd["per_model"].get(model_name, {}).get("inference_time_sec", 0)
+                    for pd in result["partition_details"]
+                )
+                avg_throughput = total_samples / total_time if total_time > 0 else 0
+                in_shape = str(info["input_shape"])
+                out_shape = str(info["output_shape"])
+                print(f"  {model_name:<22} {in_shape:<15} {out_shape:<15} "
+                      f"{total_samples:<8,} {avg_throughput:,.0f}/s")
+            print(f"  {'─' * 70}")
+
+        # Spark UI stats
+        if result.get("spark_ui_stats", {}).get("executors"):
+            print(f"\n  SPARK EXECUTOR METRICS (from REST API):")
+            print(f"  {'─' * 70}")
+            print(f"  {'ID':<8} {'Host':<25} {'Cores':<6} {'Tasks':<6} {'Duration'}")
+            print(f"  {'─' * 70}")
+            for ex in result["spark_ui_stats"]["executors"]:
+                if ex.get("id") == "driver":
+                    continue
+                host = ex.get("hostPort", "?").split(":")[0]
+                print(f"  {ex.get('id','?'):<8} {host:<25} "
+                      f"{ex.get('totalCores',0):<6} "
+                      f"{ex.get('completedTasks',0):<6} "
+                      f"{ex.get('totalDuration',0)/1000:.1f}s")
+            print(f"  {'─' * 70}")
+
+        if result.get("spark_ui_stats", {}).get("jobs"):
+            print(f"\n  SPARK JOBS:")
+            print(f"  {'─' * 70}")
+            for job in result["spark_ui_stats"]["jobs"]:
+                print(f"  Job {job.get('jobId',0)}: {job.get('status','?')} | "
+                      f"Stages: {job.get('numCompletedStages',0)}/{job.get('numStages',0)} | "
+                      f"Tasks: {job.get('numCompletedTasks',0)}/{job.get('numTasks',0)}")
+            print(f"  {'─' * 70}")
+
         return result
     except Exception as e:
         print(f"    [ERROR] Spark mode failed: {e}")
@@ -257,19 +366,44 @@ def main():
     print("  SAVING RESULTS")
     print(f"{'='*70}")
 
-    os.makedirs(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results"), exist_ok=True)
+    results_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results")
+    os.makedirs(results_dir, exist_ok=True)
 
-    report_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results", "metrics_report.md")
+    # Generate unique filename with mode, config, and timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = os.environ.get("RUN_NAME", "")
+    mode_tag = args.mode
+    config_tag = f"sig{args.signal_samples}_img{args.image_samples}_det{args.detection_samples}_p{args.partitions}"
+
+    if run_name:
+        file_prefix = f"{run_name}_{mode_tag}_{config_tag}_{timestamp}"
+    else:
+        file_prefix = f"{mode_tag}_{config_tag}_{timestamp}"
+
+    report_path = os.path.join(results_dir, f"report_{file_prefix}.md")
     report_md = generate_report(results, sys_info)
     with open(report_path, "w") as f:
         f.write(report_md)
     print(f"  Report: {report_path}")
 
-    json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results", "raw_results.json")
+    json_path = os.path.join(results_dir, f"results_{file_prefix}.json")
     with open(json_path, "w") as f:
         json.dump(results, f, indent=2, default=str)
     print(f"  Raw data: {json_path}")
 
+    # Also write a latest symlink/copy for quick access
+    latest_report = os.path.join(results_dir, "metrics_report_latest.md")
+    latest_json = os.path.join(results_dir, "raw_results_latest.json")
+    with open(latest_report, "w") as f:
+        f.write(report_md)
+    with open(latest_json, "w") as f:
+        json.dump(results, f, indent=2, default=str)
+
+    print(f"\n  Files saved:")
+    print(f"    {report_path}")
+    print(f"    {json_path}")
+    print(f"    {latest_report} (latest)")
+    print(f"    {latest_json} (latest)")
     print(f"\n  Total time: {total_time:.1f}s")
     print("")
 

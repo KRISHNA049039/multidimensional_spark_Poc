@@ -1,6 +1,6 @@
 # Multi-Model Distributed Inference — Performance Metrics
 
-**Generated:** 2026-07-24T13:03:40.309669
+**Generated:** 2026-07-24T14:08:00.836910
 
 ## System
 
@@ -33,22 +33,24 @@
 
 | Mode | Total Throughput | Time (sec) | Models on GPU | Models on CPU |
 |------|-----------------|------------|---------------|---------------|
-| distributed_gpu | 1,619 samples/sec | 31.09 | 10 | 0 |
+| single_gpu | 7,315 samples/sec | 0.69 | 10 | 0 |
+| hybrid_cpu_gpu | 7,610 samples/sec | 0.67 | 0 | 10 |
+| distributed_gpu | ERROR | - | - | - |
 
 ## Per-Model Processing (samples)
 
 | Model | Single GPU | Hybrid | Distributed |
 |-------|-----------|--------|-------------|
-| anomaly_detector | - | - | 10000 |
-| efficientnet_b0 | - | - | 100 |
-| ew_classifier | - | - | 10000 |
-| mobilenetv3 | - | - | 100 |
-| resnet18 | - | - | 100 |
-| rf_fingerprinter | - | - | 10000 |
-| signal_denoiser | - | - | 10000 |
-| threat_prioritizer | - | - | 10000 |
-| yolov8_nano | - | - | 20 |
-| yolov8_small | - | - | 20 |
+| anomaly_detector | 1000 | 1000 | - |
+| efficientnet_b0 | 20 | 20 | - |
+| ew_classifier | 1000 | 1000 | - |
+| mobilenetv3 | 20 | 20 | - |
+| resnet18 | 20 | 20 | - |
+| rf_fingerprinter | 1000 | 1000 | - |
+| signal_denoiser | 1000 | 1000 | - |
+| threat_prioritizer | 1000 | 1000 | - |
+| yolov8_nano | 5 | 5 | - |
+| yolov8_small | 5 | 5 | - |
 
 ## Recommendations
 

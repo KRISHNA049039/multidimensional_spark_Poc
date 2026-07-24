@@ -1,6 +1,6 @@
 # Multi-Model Distributed Inference — Performance Metrics
 
-**Generated:** 2026-07-24T13:03:40.309669
+**Generated:** 2026-07-24T14:21:46.293345
 
 ## System
 
@@ -33,7 +33,7 @@
 
 | Mode | Total Throughput | Time (sec) | Models on GPU | Models on CPU |
 |------|-----------------|------------|---------------|---------------|
-| distributed_gpu | 1,619 samples/sec | 31.09 | 10 | 0 |
+| distributed_gpu | 6,007 samples/sec | 8.38 | 10 | 0 |
 
 ## Per-Model Processing (samples)
 

@@ -1,6 +1,6 @@
 # Multi-Model Distributed Inference — Performance Metrics
 
-**Generated:** 2026-07-24T13:03:40.309669
+**Generated:** 2026-07-24T14:09:24.989868
 
 ## System
 
@@ -33,22 +33,12 @@
 
 | Mode | Total Throughput | Time (sec) | Models on GPU | Models on CPU |
 |------|-----------------|------------|---------------|---------------|
-| distributed_gpu | 1,619 samples/sec | 31.09 | 10 | 0 |
+| distributed_gpu | ERROR | - | - | - |
 
 ## Per-Model Processing (samples)
 
 | Model | Single GPU | Hybrid | Distributed |
 |-------|-----------|--------|-------------|
-| anomaly_detector | - | - | 10000 |
-| efficientnet_b0 | - | - | 100 |
-| ew_classifier | - | - | 10000 |
-| mobilenetv3 | - | - | 100 |
-| resnet18 | - | - | 100 |
-| rf_fingerprinter | - | - | 10000 |
-| signal_denoiser | - | - | 10000 |
-| threat_prioritizer | - | - | 10000 |
-| yolov8_nano | - | - | 20 |
-| yolov8_small | - | - | 20 |
 
 ## Recommendations
 
