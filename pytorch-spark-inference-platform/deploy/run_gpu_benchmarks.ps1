@@ -278,59 +278,15 @@ Wait-SSMCommand $wcmd.Command.CommandId $gpuWorkerInstanceId 20
 
 Write-Step "BENCH" "Running GPU benchmark phases..."
 
-$benchScript = @"
-#!/bin/bash
-set -e
-MASTER_IP=$masterIp
-
-# Fixed Spark config to prevent OOM:
-# - executor.memory=4g (was 2g)
-# - executor.cores=4
-# - task.cpus=2 (limits concurrent model loads per executor)
-# - python.worker.memory=4g
-export SPARK_SUBMIT_OPTS="--conf spark.executor.memory=4g --conf spark.executor.cores=4 --conf spark.task.cpus=2 --conf spark.python.worker.memory=4g --conf spark.driver.memory=6g"
-
-echo '=== PHASE 6: Cluster Benchmark CPU ==='
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 CUDA_VISIBLE_DEVICES='' python benchmark/cluster_benchmark.py --device-mode cpu_only --partitions 4 --signal-samples 3000 --batch-size 128" || echo 'P6.1 done'
-sleep 3
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 CUDA_VISIBLE_DEVICES='' python benchmark/cluster_benchmark.py --device-mode cpu_only --partitions 8 --signal-samples 3000 --batch-size 128" || echo 'P6.2 done'
-sleep 3
-
-echo '=== PHASE 7: GPU Tests ==='
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 2 --signal-samples 1000 --image-samples 50 --detection-samples 20 --batch-size 128" || echo 'P7.1 done'
-sleep 3
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 4 --signal-samples 3000 --image-samples 100 --detection-samples 30 --batch-size 256" || echo 'P7.2 done'
-sleep 3
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 4 --signal-samples 5000 --image-samples 200 --detection-samples 50 --batch-size 256" || echo 'P7.3 done'
-sleep 3
-
-echo '=== PHASE 7b: Hybrid Tests ==='
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode hybrid --partitions 4 --signal-samples 3000 --image-samples 100 --detection-samples 30 --batch-size 256" || echo 'P7b.1 done'
-sleep 3
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode hybrid --partitions 8 --signal-samples 5000 --image-samples 200 --detection-samples 50 --batch-size 256" || echo 'P7b.2 done'
-sleep 3
-
-echo '=== PHASE 8: GPU Batch Size ==='
-for bs in 64 128 256 512; do
-  docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --device-mode gpu_only --partitions 4 --signal-samples 3000 --image-samples 100 --detection-samples 30 --batch-size `\$bs" || echo "P8 bs=`\$bs done"
-  sleep 3
-done
-
-echo '=== PHASE 9: Incremental Load ==='
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/incremental_load_test.py" || echo 'P9 done'
-sleep 3
-
-echo '=== PHASE 10: Full Incremental ==='
-docker exec spark-master bash -c "SPARK_MASTER_URL=spark://`${MASTER_IP}:7077 python benchmark/cluster_benchmark.py --incremental" || echo 'P10 done'
-
-echo '=== Syncing results ==='
-docker cp spark-master:/app/results/. /opt/spark-inference/app/results/
-aws s3 sync /opt/spark-inference/app/results/ s3://$bucketName/results/ --region $Region
-echo '=== ALL GPU BENCHMARKS COMPLETE ==='
-"@
+# Use static benchmark script — replace placeholders with actual values
+$benchScriptTemplate = Join-Path $PROJECT_DIR "deploy\scripts\gpu_benchmarks.sh"
+$benchScriptContent = [System.IO.File]::ReadAllText($benchScriptTemplate)
+$benchScriptContent = $benchScriptContent.Replace("__MASTER_IP__", $masterIp)
+$benchScriptContent = $benchScriptContent.Replace("__BUCKET__", $bucketName)
+$benchScriptContent = $benchScriptContent.Replace("__REGION__", $Region)
 
 $benchPath = "$env:TEMP\gpu_benchmarks.sh"
-[System.IO.File]::WriteAllText($benchPath, $benchScript.Replace("`r`n", "`n"))
+[System.IO.File]::WriteAllText($benchPath, $benchScriptContent.Replace("`r`n", "`n"))
 & $AWS s3 cp $benchPath "s3://$bucketName/scripts/gpu_benchmarks.sh" --region $Region
 
 $bParams = @{ commands = @("aws s3 cp s3://$bucketName/scripts/gpu_benchmarks.sh /tmp/b.sh --region $Region && chmod +x /tmp/b.sh && /tmp/b.sh"); executionTimeout = @("7200") } | ConvertTo-Json -Compress
@@ -348,20 +304,29 @@ $benchResult = Wait-SSMCommand $bcmd.Command.CommandId $masterInstanceId 90
 if (-not (Test-Path $ResultsLocalPath)) {
     New-Item -ItemType Directory -Path $ResultsLocalPath -Force | Out-Null
 }
+
+# Always try to sync results even if benchmark "failed" (Spark logs cause false failures)
+Write-Step "RESULTS" "Downloading results from S3..."
 & $AWS s3 sync "s3://$bucketName/results/" $ResultsLocalPath --region $Region
-Write-Step "RESULTS" "Downloaded to: $ResultsLocalPath" "Green"
+
+$resultCount = (Get-ChildItem -Path $ResultsLocalPath -Filter "*.json" -ErrorAction SilentlyContinue).Count
+Write-Step "RESULTS" "Downloaded $resultCount JSON files to: $ResultsLocalPath" "Green"
 
 # =============================================================================
-# CLEANUP
+# CLEANUP — only delete if we got results, otherwise keep for debugging
 # =============================================================================
 
-if (-not $KeepRunning) {
+if ($resultCount -gt 0 -and -not $KeepRunning) {
     & $AWS cloudformation delete-stack --stack-name $STACK_NAME --region $Region
     Write-Step "CLEANUP" "Stack deletion initiated" "Green"
+} elseif ($resultCount -eq 0) {
+    Write-Step "CLEANUP" "No results downloaded! Stack kept alive for debugging." "Red"
+    Write-Step "CLEANUP" "Check manually: aws ssm start-session --target $masterInstanceId --region $Region" "Yellow"
+    Write-Step "CLEANUP" "To delete later: aws cloudformation delete-stack --stack-name $STACK_NAME --region $Region" "Yellow"
 } else {
     Write-Step "CLEANUP" "Stack kept running (billing continues!)" "Yellow"
 }
 
 Write-Host ""
-Write-Step "DONE" "GPU benchmark complete. Results in: $ResultsLocalPath"
+Write-Step "DONE" "GPU benchmark complete. Results in: $ResultsLocalPath ($resultCount files)"
 Write-Host ""
