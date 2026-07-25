@@ -47,16 +47,16 @@ def create_spark_session(app_name="MultiModel_Distributed_GPU", num_cores="4",
         SparkSession.builder
         .appName(app_name)
         .master(master_url)
-        .config("spark.driver.memory", "4g")
-        .config("spark.executor.memory", "2g")
-        .config("spark.executor.cores", "2")
-        .config("spark.task.cpus", "1")
+        .config("spark.driver.memory", "6g")
+        .config("spark.executor.memory", "4g")
+        .config("spark.executor.cores", "4")
+        .config("spark.task.cpus", "2")
         .config("spark.rpc.message.maxSize", "512")
-        .config("spark.driver.maxResultSize", "2g")
+        .config("spark.driver.maxResultSize", "4g")
         .config("spark.network.timeout", "600s")
         .config("spark.executor.heartbeatInterval", "120s")
         .config("spark.python.worker.reuse", "true")
-        .config("spark.python.worker.memory", "1g")
+        .config("spark.python.worker.memory", "4g")
         .config("spark.driver.extraJavaOptions",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED "
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "

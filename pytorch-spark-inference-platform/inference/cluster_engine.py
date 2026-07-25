@@ -41,8 +41,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def create_cluster_session(app_name="ClusterBenchmark", master_url=None,
-                           executor_memory="2g", driver_memory="4g",
-                           executor_cores=2, max_message_size=512):
+                           executor_memory="4g", driver_memory="6g",
+                           executor_cores=4, max_message_size=512):
     """Create SparkSession optimized for cluster inference."""
     from pyspark.sql import SparkSession
 
@@ -58,13 +58,13 @@ def create_cluster_session(app_name="ClusterBenchmark", master_url=None,
         .config("spark.driver.memory", driver_memory)
         .config("spark.executor.memory", executor_memory)
         .config("spark.executor.cores", str(executor_cores))
-        .config("spark.task.cpus", "1")
+        .config("spark.task.cpus", "2")
         .config("spark.rpc.message.maxSize", str(max_message_size))
-        .config("spark.driver.maxResultSize", "2g")
+        .config("spark.driver.maxResultSize", "4g")
         .config("spark.network.timeout", "600s")
         .config("spark.executor.heartbeatInterval", "120s")
         .config("spark.python.worker.reuse", "true")
-        .config("spark.python.worker.memory", "2g")
+        .config("spark.python.worker.memory", "4g")
         .config("spark.driver.extraJavaOptions",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED "
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "

@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Cost-effective Spot instance cluster for running Spark inference benchmarks.
+  Master: c5.2xlarge (8 vCPU, 16GB) + GPU Worker: g4dn.2xlarge (8 vCPU, 32GB, T4 GPU).
+  Spot pricing saves 60-90% vs on-demand. Auto-terminates after 4 hours safety net.
+
+Parameters:
+  MasterInstanceType:
+    Type: String
+    Default: c5.2xlarge
+    Description: Master instance type (CPU, high core count)
+    AllowedValues:
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+
+  WorkerInstanceType:
+    Type: String
+    Default: c5.2xlarge
+    Description: Worker instance type (use c5/m5 for CPU-only, g4dn/g5 for GPU)
+    AllowedValues:
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - g4dn.xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - g4dn.8xlarge
+      - g5.xlarge
+      - g5.2xlarge
+
+Resources:
+  # ---------------------------------------------------------------
+  # VPC
+  # ---------------------------------------------------------------
+  BenchmarkVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: spark-benchmark-vpc
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BenchmarkVpc
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: spark-benchmark-public
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref BenchmarkVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BenchmarkVpc
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # ---------------------------------------------------------------
+  # Security Group
+  # ---------------------------------------------------------------
+  ClusterSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Spark benchmark cluster internal traffic
+      VpcId: !Ref BenchmarkVpc
+
+  ClusterSgIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ClusterSg
+      IpProtocol: "-1"
+      SourceSecurityGroupId: !Ref ClusterSg
+      Description: Allow all traffic between cluster nodes
+
+  # ---------------------------------------------------------------
+  # S3 Bucket
+  # ---------------------------------------------------------------
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # ---------------------------------------------------------------
+  # IAM Role
+  # ---------------------------------------------------------------
+  NodeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub "${ArtifactsBucket.Arn}/*"
+        - PolicyName: EC2Describe
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                Resource: "*"
+
+  NodeInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref NodeRole
+
+  # ---------------------------------------------------------------
+  # Launch Templates
+  # ---------------------------------------------------------------
+  MasterLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: !Ref MasterInstanceType
+        ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+        IamInstanceProfile:
+          Arn: !GetAtt NodeInstanceProfile.Arn
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            SubnetId: !Ref PublicSubnet
+            Groups:
+              - !Ref ClusterSg
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            dnf install -y docker aws-cli jq unzip
+            systemctl enable docker && systemctl start docker
+            dnf install -y at && systemctl enable atd && systemctl start atd
+            echo 'shutdown -h now' | at now + 4 hours
+            mkdir -p /opt/spark-inference/app
+            echo "=== Master ready ==="
+
+  GpuWorkerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: !Ref WorkerInstanceType
+        ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+        IamInstanceProfile:
+          Arn: !GetAtt NodeInstanceProfile.Arn
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            SubnetId: !Ref PublicSubnet
+            Groups:
+              - !Ref ClusterSg
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 150
+              VolumeType: gp3
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            dnf install -y docker aws-cli jq unzip
+            systemctl enable docker && systemctl start docker
+            dnf install -y kernel-devel-$(uname -r) kernel-headers-$(uname -r) gcc make dkms || true
+            curl -fsSL https://us.download.nvidia.com/tesla/535.183.01/NVIDIA-Linux-x86_64-535.183.01.run -o /tmp/nvidia-driver.run
+            bash /tmp/nvidia-driver.run --silent --dkms || true
+            curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+            dnf install -y nvidia-container-toolkit
+            nvidia-ctk runtime configure --runtime=docker
+            systemctl restart docker
+            dnf install -y at && systemctl enable atd && systemctl start atd
+            echo 'shutdown -h now' | at now + 4 hours
+            mkdir -p /opt/spark-inference/app
+            echo "=== GPU Worker ready ==="
+
+  # ---------------------------------------------------------------
+  # Instances (using Launch Templates)
+  # ---------------------------------------------------------------
+  MasterInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MasterLaunchTemplate
+        Version: !GetAtt MasterLaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: spark-benchmark-master
+
+  GpuWorkerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref GpuWorkerLaunchTemplate
+        Version: !GetAtt GpuWorkerLaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: spark-benchmark-gpu-worker
+
+Outputs:
+  MasterInstanceId:
+    Value: !Ref MasterInstance
+  MasterPublicIp:
+    Value: !GetAtt MasterInstance.PublicIp
+  MasterPrivateIp:
+    Value: !GetAtt MasterInstance.PrivateIp
+  GpuWorkerInstanceId:
+    Value: !Ref GpuWorkerInstance
+  GpuWorkerPublicIp:
+    Value: !GetAtt GpuWorkerInstance.PublicIp
+  GpuWorkerPrivateIp:
+    Value: !GetAtt GpuWorkerInstance.PrivateIp
+  ArtifactsBucketName:
+    Value: !Ref ArtifactsBucket
