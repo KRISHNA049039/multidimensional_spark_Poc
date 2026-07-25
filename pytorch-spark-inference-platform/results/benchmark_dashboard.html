@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark Multi-Model Inference — Benchmark Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+.header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 40px; text-align: center; border-bottom: 2px solid #3b82f6; }
+.header h1 { font-size: 2.2em; color: #f8fafc; margin-bottom: 8px; }
+.header p { color: #94a3b8; font-size: 1.1em; }
+.metrics-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 30px 40px; background: #1e293b; }
+.metric-card { background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%); border-radius: 12px; padding: 24px; text-align: center; border: 1px solid #334155; }
+.metric-card .value { font-size: 2.4em; font-weight: 700; color: #3b82f6; }
+.metric-card .label { color: #94a3b8; margin-top: 4px; font-size: 0.9em; }
+.metric-card.green .value { color: #10b981; }
+.metric-card.purple .value { color: #8b5cf6; }
+.metric-card.orange .value { color: #f59e0b; }
+.dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 30px 40px; }
+.chart-card { background: #1e293b; border-radius: 16px; padding: 24px; border: 1px solid #334155; }
+.chart-card h3 { color: #f8fafc; margin-bottom: 16px; font-size: 1.1em; }
+.chart-card.full { grid-column: 1 / -1; }
+.insight { background: #172554; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-top: 12px; font-size: 0.85em; color: #93c5fd; }
+.insight.warn { border-left-color: #f59e0b; background: #1c1917; color: #fcd34d; }
+.insight.success { border-left-color: #10b981; background: #022c22; color: #6ee7b7; }
+.legend { display: flex; gap: 16px; justify-content: center; margin-top: 12px; }
+.legend span { display: flex; align-items: center; gap: 6px; font-size: 0.8em; color: #94a3b8; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+canvas { max-height: 300px; }
+</style>
+</head>
+<body>
+<div class="header">
+<h1>⚡ Spark Multi-Model Inference Platform</h1>
+<p>Performance & Scalability Dashboard — 10 Models × 3 Device Modes × 81 Benchmark Runs</p>
+</div>
+
+<div class="metrics-bar">
+<div class="metric-card"><div class="value">3,707</div><div class="label">Peak CPU Throughput (samples/sec)</div></div>
+<div class="metric-card green"><div class="value">1,512</div><div class="label">Peak Hybrid Throughput</div></div>
+<div class="metric-card purple"><div class="value">10</div><div class="label">Models in Parallel</div></div>
+<div class="metric-card orange"><div class="value">~$1.70</div><div class="label">Cost per Full Benchmark</div></div>
+</div>
+
+<div class="dashboard">
+
+<!-- Chart 1: Partition Scaling -->
+<div class="chart-card">
+<h3>📊 Partition Scaling (5K signals, 8 cores)</h3>
+<canvas id="partitionChart"></canvas>
+<div class="insight success">Sweet spot: 6-8 partitions = core count. Beyond that, model reload overhead dominates.</div>
+</div>
+
+<!-- Chart 2: Data Volume Scaling -->
+<div class="chart-card">
+<h3>📈 Data Volume Scaling</h3>
+<canvas id="datasizeChart"></canvas>
+<div class="insight">Near-linear scaling above 5K signals. Model load (1.2s) is amortized at higher volumes.</div>
+</div>
+
+<!-- Chart 3: Worker Scaling -->
+<div class="chart-card">
+<h3>👷 Worker Scaling (Horizontal)</h3>
+<canvas id="workerChart"></canvas>
+<div class="insight warn">Sub-linear scaling due to 1.2s model reload per executor. Better at 50K+ signals.</div>
+</div>
+
+<!-- Chart 4: Batch Size -->
+<div class="chart-card">
+<h3>📦 Batch Size Impact (CPU)</h3>
+<canvas id="batchChart"></canvas>
+<div class="insight">Minimal impact on CPU (&lt;5%). Batch 256 slightly optimal. GPU would show larger gains.</div>
+</div>
+
+<!-- Chart 5: Device Mode Comparison -->
+<div class="chart-card">
+<h3>🖥️ Device Mode Comparison (3K+ signals)</h3>
+<canvas id="deviceChart"></canvas>
+<div class="insight success">Hybrid wins by routing signals→CPU and images→GPU. Pure GPU loses on signal models.</div>
+</div>
+
+<!-- Chart 6: Per-Model Throughput -->
+<div class="chart-card">
+<h3>🧠 Per-Model Throughput (samples/sec per executor)</h3>
+<canvas id="modelChart"></canvas>
+<div class="legend">
+<span><span class="dot" style="background:#36a2eb"></span> Signal Models</span>
+<span><span class="dot" style="background:#ff6384"></span> Image Classification</span>
+<span><span class="dot" style="background:#ffce56"></span> Object Detection</span>
+</div>
+<div class="insight warn">CNN models (ResNet/YOLO) are 1000-10000× slower than signal models on CPU. Primary GPU beneficiaries.</div>
+</div>
+
+<!-- Chart 7: Elapsed Time Comparison -->
+<div class="chart-card full">
+<h3>⏱️ Elapsed Time by Configuration</h3>
+<canvas id="elapsedChart"></canvas>
+</div>
+
+</div>
+
+<script>
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+const gradient_blue = (ctx) => { let g = ctx.chart.ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(59,130,246,0.5)'); g.addColorStop(1,'rgba(59,130,246,0.05)'); return g; };
+const gradient_green = (ctx) => { let g = ctx.chart.ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(16,185,129,0.5)'); g.addColorStop(1,'rgba(16,185,129,0.05)'); return g; };
+
+// Partition Chart
+new Chart(document.getElementById('partitionChart'), {
+  type: 'line',
+  data: {
+    labels: [2, 4, 6, 8, 12, 16],
+    datasets: [{
+      label: 'Throughput (samples/sec)',
+      data: [2592.1, 3444.6, 3683.3, 3706.9, 2883.9, 2859.4],
+      borderColor: '#3b82f6', backgroundColor: gradient_blue,
+      fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: '#3b82f6'
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Throughput' } }, x: { title: { display: true, text: 'Partitions' } } } }
+});
+
+// Data Size Chart
+new Chart(document.getElementById('datasizeChart'), {
+  type: 'line',
+  data: {
+    labels: [500, 1000, 5000, 8000, 10000],
+    datasets: [{
+      label: 'Throughput',
+      data: [463.2, 890.3, 3303.2, 5854.9, 6467.3],
+      borderColor: '#10b981', backgroundColor: gradient_green,
+      fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: '#10b981'
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Throughput (samples/sec)' } }, x: { title: { display: true, text: 'Signal Samples' } } } }
+});
+
+// Worker Chart
+new Chart(document.getElementById('workerChart'), {
+  type: 'line',
+  data: {
+    labels: [1, 2, 3, 4, 6],
+    datasets: [
+      { label: 'Actual', data: [2579.5, 3515.5, 3687.8, 3413.8, 2895.9], borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: '#8b5cf6' },
+      { label: 'Ideal Linear', data: [2579.5, 5159.0, 7738.5, 10318.0, 15477.0], borderColor: '#475569', borderDash: [5,5], pointRadius: 0, fill: false }
+    ]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Throughput' } }, x: { title: { display: true, text: 'Workers' } } } }
+});
+
+// Batch Size Chart
+new Chart(document.getElementById('batchChart'), {
+  type: 'bar',
+  data: {
+    labels: [16, 32, 64, 128, 256, 512],
+    datasets: [{
+      label: 'Throughput',
+      data: [3334.5, 3234.8, 3418.1, 3342.2, 3475.9, 3337.7],
+      backgroundColor: ['#f59e0b','#f97316','#ef4444','#ec4899','#8b5cf6','#6366f1'],
+      borderRadius: 6
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, min: 3000, title: { display: true, text: 'Throughput' } }, x: { title: { display: true, text: 'Batch Size' } } } }
+});
+
+// Device Mode Chart
+new Chart(document.getElementById('deviceChart'), {
+  type: 'bar',
+  data: {
+    labels: ['CPU Only', 'GPU Only', 'Hybrid'],
+    datasets: [{
+      label: 'Avg Throughput (3K+ signals)',
+      data: [1155.5, 1371.5, 1434.5],
+      backgroundColor: ['rgba(59,130,246,0.7)', 'rgba(139,92,246,0.7)', 'rgba(16,185,129,0.7)'],
+      borderColor: ['#3b82f6', '#8b5cf6', '#10b981'],
+      borderWidth: 2, borderRadius: 8
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Throughput (samples/sec)' } } } }
+});
+
+// Per-Model Chart
+new Chart(document.getElementById('modelChart'), {
+  type: 'bar',
+  data: {
+    labels: ["signal_denoiser", "anomaly_detector", "ew_classifier", "threat_prioritizer", "rf_fingerprinter", "mobilenetv3", "yolov8_nano", "efficientnet_b0", "resnet18", "yolov8_small"],
+    datasets: [{
+      label: 'Throughput/executor',
+      data: [174961.0, 150174.2, 74102.2, 29345.9, 4695.0, 171.1, 45.2, 24.6, 21.0, 17.7],
+      backgroundColor: ['rgba(54, 162, 235, 0.8)','rgba(54, 162, 235, 0.8)','rgba(54, 162, 235, 0.8)','rgba(54, 162, 235, 0.8)','rgba(54, 162, 235, 0.8)','rgba(255, 99, 132, 0.8)','rgba(255, 206, 86, 0.8)','rgba(255, 99, 132, 0.8)','rgba(255, 99, 132, 0.8)','rgba(255, 206, 86, 0.8)'],
+      borderRadius: 4
+    }]
+  },
+  options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { type: 'logarithmic', title: { display: true, text: 'Throughput (log scale)' } } } }
+});
+
+// Elapsed Time comparison
+new Chart(document.getElementById('elapsedChart'), {
+  type: 'bar',
+  data: {
+    labels: ['2 parts', '4 parts', '6 parts', '8 parts', '12 parts', '16 parts', '1 worker', '2 workers', '3 workers', '4 workers', '6 workers'],
+    datasets: [{
+      label: 'Elapsed Time (sec)',
+      data: [9.7, 7.3, 6.8, 6.8, 8.7, 8.8, 9.8, 7.2, 6.8, 7.4, 8.7],
+      backgroundColor: ['#3b82f6','#3b82f6','#3b82f6','#3b82f6','#3b82f6','#3b82f6','#8b5cf6','#8b5cf6','#8b5cf6','#8b5cf6','#8b5cf6'],
+      borderRadius: 4
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: 'Seconds' } } } }
+});
+</script>
+</body>
+</html>
