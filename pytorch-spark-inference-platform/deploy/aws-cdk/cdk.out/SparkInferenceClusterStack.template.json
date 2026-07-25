@@ -1,0 +1,1129 @@
+{
+ "Description": "Full Spark cluster: master + GPU worker",
+ "Parameters": {
+  "AdminCidr": {
+   "Type": "String",
+   "Default": "",
+   "Description": "CIDR allowed to reach Spark UIs (8080/4040), e.g. '203.0.113.5/32'."
+  },
+  "MasterInstanceType": {
+   "Type": "String",
+   "Default": "m5.xlarge",
+   "Description": "Instance type for Spark master (CPU). Also acts as a CPU worker."
+  },
+  "WorkerInstanceType": {
+   "Type": "String",
+   "Default": "g4dn.xlarge",
+   "Description": "Instance type for the GPU worker."
+  },
+  "AutoShutdownHours": {
+   "Type": "Number",
+   "Default": 4,
+   "Description": "Safety net: instances shut down after this many hours (0 = disabled).",
+   "MinValue": 0
+  },
+  "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Resources": {
+  "SparkVpc16AA3A99": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/Resource"
+   }
+  },
+  "SparkVpcpublicSubnet1SubnetFF7985EB": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet1/Subnet"
+   }
+  },
+  "SparkVpcpublicSubnet1RouteTable45DF6283": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet1/RouteTable"
+   }
+  },
+  "SparkVpcpublicSubnet1RouteTableAssociationE65CA184": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet1RouteTable45DF6283"
+    },
+    "SubnetId": {
+     "Ref": "SparkVpcpublicSubnet1SubnetFF7985EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet1/RouteTableAssociation"
+   }
+  },
+  "SparkVpcpublicSubnet1DefaultRoute17B7A9FA": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "SparkVpcIGW757786B3"
+    },
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet1RouteTable45DF6283"
+    }
+   },
+   "DependsOn": [
+    "SparkVpcVPCGWAAC5635F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet1/DefaultRoute"
+   }
+  },
+  "SparkVpcpublicSubnet2SubnetD9FFE4EE": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet2/Subnet"
+   }
+  },
+  "SparkVpcpublicSubnet2RouteTable8CD9D7AF": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet2/RouteTable"
+   }
+  },
+  "SparkVpcpublicSubnet2RouteTableAssociationCFD36ADB": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet2RouteTable8CD9D7AF"
+    },
+    "SubnetId": {
+     "Ref": "SparkVpcpublicSubnet2SubnetD9FFE4EE"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet2/RouteTableAssociation"
+   }
+  },
+  "SparkVpcpublicSubnet2DefaultRoute78C68C43": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "SparkVpcIGW757786B3"
+    },
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet2RouteTable8CD9D7AF"
+    }
+   },
+   "DependsOn": [
+    "SparkVpcVPCGWAAC5635F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet2/DefaultRoute"
+   }
+  },
+  "SparkVpcpublicSubnet3Subnet869B67C0": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1c",
+    "CidrBlock": "10.0.2.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet3"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet3/Subnet"
+   }
+  },
+  "SparkVpcpublicSubnet3RouteTableD97DCE30": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc/publicSubnet3"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet3/RouteTable"
+   }
+  },
+  "SparkVpcpublicSubnet3RouteTableAssociationCD009E91": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet3RouteTableD97DCE30"
+    },
+    "SubnetId": {
+     "Ref": "SparkVpcpublicSubnet3Subnet869B67C0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet3/RouteTableAssociation"
+   }
+  },
+  "SparkVpcpublicSubnet3DefaultRouteC22C1319": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "SparkVpcIGW757786B3"
+    },
+    "RouteTableId": {
+     "Ref": "SparkVpcpublicSubnet3RouteTableD97DCE30"
+    }
+   },
+   "DependsOn": [
+    "SparkVpcVPCGWAAC5635F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/publicSubnet3/DefaultRoute"
+   }
+  },
+  "SparkVpcIGW757786B3": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "SparkInferenceClusterStack/SparkVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/IGW"
+   }
+  },
+  "SparkVpcVPCGWAAC5635F": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "SparkVpcIGW757786B3"
+    },
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkVpc/VPCGW"
+   }
+  },
+  "SparkClusterSg13382047": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Spark inference cluster - master and worker traffic",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "SparkVpc16AA3A99"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkClusterSg/Resource"
+   }
+  },
+  "SparkClusterSgfromSparkInferenceClusterStackSparkClusterSg5B99A6FDALLTRAFFIC16FBE1AB": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Inter-node Spark traffic",
+    "GroupId": {
+     "Fn::GetAtt": [
+      "SparkClusterSg13382047",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "-1",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "SparkClusterSg13382047",
+      "GroupId"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkClusterSg/from SparkInferenceClusterStackSparkClusterSg5B99A6FD:ALL TRAFFIC"
+   }
+  },
+  "AdminUi8080": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "CidrIp": {
+     "Ref": "AdminCidr"
+    },
+    "FromPort": 8080,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "SparkClusterSg13382047",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 8080
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/AdminUi8080"
+   },
+   "Condition": "HasAdminCidr8080"
+  },
+  "AdminUi4040": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "CidrIp": {
+     "Ref": "AdminCidr"
+    },
+    "FromPort": 4040,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "SparkClusterSg13382047",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 4040
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/AdminUi4040"
+   },
+   "Condition": "HasAdminCidr4040"
+  },
+  "ArtifactsBucket2AAC5544": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/ArtifactsBucket/Resource"
+   }
+  },
+  "ArtifactsBucketPolicy852CB646": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:PutBucketPolicy"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/ArtifactsBucket/Policy/Resource"
+   }
+  },
+  "ArtifactsBucketAutoDeleteObjectsCustomResource0E3B4320": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    }
+   },
+   "DependsOn": [
+    "ArtifactsBucketPolicy852CB646"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/ArtifactsBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-368287210840-us-east-1",
+     "S3Key": "b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "ArtifactsBucket2AAC5544"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "SparkNodeRoleEC3BBDDF": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Spark inference nodes - SSM, CloudWatch, S3, EC2 describe",
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/CloudWatchAgentServerPolicy"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkNodeRole/Resource"
+   }
+  },
+  "SparkNodeRoleDefaultPolicyDEFDF5CA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "autoscaling:DescribeAutoScalingGroups",
+        "cloudwatch:PutMetricData",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:ModifyVolume"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SparkNodeRoleDefaultPolicyDEFDF5CA",
+    "Roles": [
+     {
+      "Ref": "SparkNodeRoleEC3BBDDF"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkNodeRole/DefaultPolicy/Resource"
+   }
+  },
+  "SparkMasterInstanceProfile4F985103": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "SparkNodeRoleEC3BBDDF"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkMaster/InstanceProfile"
+   }
+  },
+  "SparkMasterBE11B4FC": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+       "VolumeSize": 100,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "SparkMasterInstanceProfile4F985103"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": {
+     "Ref": "MasterInstanceType"
+    },
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "SparkClusterSg13382047",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": {
+       "Ref": "SparkVpcpublicSubnet1SubnetFF7985EB"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "spark-master"
+     },
+     {
+      "Key": "Role",
+      "Value": "spark-master"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\nset -eux\nexport PKG_MGR=$(command -v dnf || command -v yum)\n$PKG_MGR install -y docker aws-cli jq unzip\nsystemctl enable docker\nsystemctl start docker\nusermod -aG docker ec2-user || true\nrpm -Uvh https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm || true\nmkdir -p /opt/aws/amazon-cloudwatch-agent/etc\ncat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWEOF'\n{\n  \"agent\": {\n    \"metrics_collection_interval\": 30\n  },\n  \"metrics\": {\n    \"namespace\": \"CWAgent\",\n    \"append_dimensions\": {\n      \"InstanceId\": \"${aws:InstanceId}\"\n    },\n    \"metrics_collected\": {\n      \"cpu\": {\n        \"measurement\": [\n          \"cpu_usage_active\",\n          \"cpu_usage_iowait\"\n        ],\n        \"totalcpu\": true\n      },\n      \"mem\": {\n        \"measurement\": [\n          \"mem_used_percent\"\n        ]\n      },\n      \"disk\": {\n        \"measurement\": [\n          \"disk_used_percent\"\n        ],\n        \"resources\": [\n          \"/\"\n        ]\n      },\n      \"netstat\": {\n        \"measurement\": [\n          \"tcp_established\",\n          \"tcp_time_wait\"\n        ]\n      }\n    }\n  }\n}\nCWEOF\n/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json\nexport ARTIFACTS_BUCKET=",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "\necho 'ARTIFACTS_BUCKET=",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "' >> /etc/environment\nexport AWS_DEFAULT_REGION=us-east-1\nmkdir -p /opt/spark-inference/app\naws s3 cp s3://",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "/inference/project.zip /opt/spark-inference/project.zip || echo 'WARNING: project.zip not in S3 yet'\nif [ -f /opt/spark-inference/project.zip ]; then unzip -o /opt/spark-inference/project.zip -d /opt/spark-inference/app && cd /opt/spark-inference/app && docker build -t multi-model-inference:latest -f deploy/Dockerfile . ; fi\naws s3 cp s3://",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "/inference/multi-model-inference.tar /opt/spark-inference/image.tar && docker load < /opt/spark-inference/image.tar || true\nif [ '",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        "' != '0' ]; then $PKG_MGR install -y at && systemctl enable atd && systemctl start atd && echo 'shutdown -h now' | at now + ",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        " hours; fi\nsleep 5\ndocker run -d --name spark-master --network host --restart unless-stopped multi-model-inference:latest bash -c \"start-master.sh && tail -f /opt/spark/logs/*master*\"\nsleep 10\ndocker run -d --name spark-cpu-worker --network host --restart unless-stopped multi-model-inference:latest bash -c \"start-worker.sh spark://$(hostname -I | awk '{print \\$1}'):7077 -c 2 -m 4g && tail -f /opt/spark/logs/*worker*\""
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "SparkNodeRoleDefaultPolicyDEFDF5CA",
+    "SparkNodeRoleEC3BBDDF",
+    "SparkVpcpublicSubnet1DefaultRoute17B7A9FA",
+    "SparkVpcpublicSubnet1RouteTableAssociationE65CA184",
+    "SparkVpcpublicSubnet2DefaultRoute78C68C43",
+    "SparkVpcpublicSubnet2RouteTableAssociationCFD36ADB",
+    "SparkVpcpublicSubnet3DefaultRouteC22C1319",
+    "SparkVpcpublicSubnet3RouteTableAssociationCD009E91"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkMaster/Resource"
+   }
+  },
+  "SparkGpuWorkerInstanceProfileC9F61C2C": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "SparkNodeRoleEC3BBDDF"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkGpuWorker/InstanceProfile"
+   }
+  },
+  "SparkGpuWorkerD3C71041": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+       "VolumeSize": 150,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "SparkGpuWorkerInstanceProfileC9F61C2C"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": {
+     "Ref": "WorkerInstanceType"
+    },
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "SparkClusterSg13382047",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": {
+       "Ref": "SparkVpcpublicSubnet1SubnetFF7985EB"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "spark-gpu-worker"
+     },
+     {
+      "Key": "Role",
+      "Value": "spark-worker"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\nset -eux\nexport PKG_MGR=$(command -v dnf || command -v yum)\n$PKG_MGR install -y docker aws-cli jq unzip\nsystemctl enable docker\nsystemctl start docker\nusermod -aG docker ec2-user || true\nrpm -Uvh https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm || true\nmkdir -p /opt/aws/amazon-cloudwatch-agent/etc\ncat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWEOF'\n{\n  \"agent\": {\n    \"metrics_collection_interval\": 30\n  },\n  \"metrics\": {\n    \"namespace\": \"CWAgent\",\n    \"append_dimensions\": {\n      \"InstanceId\": \"${aws:InstanceId}\"\n    },\n    \"metrics_collected\": {\n      \"cpu\": {\n        \"measurement\": [\n          \"cpu_usage_active\",\n          \"cpu_usage_iowait\"\n        ],\n        \"totalcpu\": true\n      },\n      \"mem\": {\n        \"measurement\": [\n          \"mem_used_percent\"\n        ]\n      },\n      \"disk\": {\n        \"measurement\": [\n          \"disk_used_percent\"\n        ],\n        \"resources\": [\n          \"/\"\n        ]\n      },\n      \"netstat\": {\n        \"measurement\": [\n          \"tcp_established\",\n          \"tcp_time_wait\"\n        ]\n      }\n    }\n  }\n}\nCWEOF\n/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json\nexport ARTIFACTS_BUCKET=",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "\necho 'ARTIFACTS_BUCKET=",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "' >> /etc/environment\nexport AWS_DEFAULT_REGION=us-east-1\nmkdir -p /opt/spark-inference/app\naws s3 cp s3://",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "/inference/project.zip /opt/spark-inference/project.zip || echo 'WARNING: project.zip not in S3 yet'\nif [ -f /opt/spark-inference/project.zip ]; then unzip -o /opt/spark-inference/project.zip -d /opt/spark-inference/app && cd /opt/spark-inference/app && docker build -t multi-model-inference:latest -f deploy/Dockerfile . ; fi\naws s3 cp s3://",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "/inference/multi-model-inference.tar /opt/spark-inference/image.tar && docker load < /opt/spark-inference/image.tar || true\nif [ '",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        "' != '0' ]; then $PKG_MGR install -y at && systemctl enable atd && systemctl start atd && echo 'shutdown -h now' | at now + ",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        " hours; fi\nif ! command -v nvidia-smi &>/dev/null; then $PKG_MGR install -y kernel-devel-$(uname -r) kernel-headers-$(uname -r) gcc make dkms && curl -fsSL https://us.download.nvidia.com/tesla/535.183.01/NVIDIA-Linux-x86_64-535.183.01.run -o /tmp/nvidia-driver.run && bash /tmp/nvidia-driver.run --silent --dkms || true; fi\ncurl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | tee /etc/yum.repos.d/nvidia-container-toolkit.repo\n$PKG_MGR install -y nvidia-container-toolkit\nnvidia-ctk runtime configure --runtime=docker\nsystemctl restart docker\nsleep 5\ndocker run -d --name spark-gpu-worker --network host --restart unless-stopped --gpus all --shm-size=4g multi-model-inference:latest bash -c \"start-worker.sh spark://",
+        {
+         "Fn::GetAtt": [
+          "SparkMasterBE11B4FC",
+          "PrivateIp"
+         ]
+        },
+        ":7077 -c 4 -m 12g && tail -f /opt/spark/logs/*worker*\""
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "SparkNodeRoleDefaultPolicyDEFDF5CA",
+    "SparkNodeRoleEC3BBDDF",
+    "SparkVpcpublicSubnet1DefaultRoute17B7A9FA",
+    "SparkVpcpublicSubnet1RouteTableAssociationE65CA184",
+    "SparkVpcpublicSubnet2DefaultRoute78C68C43",
+    "SparkVpcpublicSubnet2RouteTableAssociationCFD36ADB",
+    "SparkVpcpublicSubnet3DefaultRouteC22C1319",
+    "SparkVpcpublicSubnet3RouteTableAssociationCD009E91"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkGpuWorker/Resource"
+   }
+  },
+  "SparkClusterDashboardEE1CB0D9": {
+   "Type": "AWS::CloudWatch::Dashboard",
+   "Properties": {
+    "DashboardBody": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"widgets\":[{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":0,\"properties\":{\"markdown\":\"# Spark Inference Cluster - Master / GPU Worker / Benchmark\"}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host CPU %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"cpu_usage_active\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host Memory %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"mem_used_percent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host Disk %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"disk_used_percent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Active Workers\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ActiveWorkers\",{\"period\":60,\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Executor Active Tasks\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ExecutorActiveTasks\",{\"period\":60,\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Executor Completed Tasks\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ExecutorCompletedTasks\",{\"period\":60,\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Utilization %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuUtilizationPercent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Memory Used (MB)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuMemoryUsedMb\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Temperature (C)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuTemperatureC\",{\"period\":60,\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":19,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Benchmark Throughput (samples/sec)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Benchmark\",\"ThroughputSamplesPerSec\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":12,\"y\":19,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Benchmark Elapsed Time (sec)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Benchmark\",\"ElapsedTimeSec\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}}]}"
+      ]
+     ]
+    },
+    "DashboardName": "SparkInferenceCluster"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/SparkClusterDashboard/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31QS07DMBA9S/euIS0XKEVCXWElqFs0cabN0MRT2WOiKMrdUerQwIbV+0pv7I3OskedraALa1td1g2VeigE7EXtT86AhxYFvYIufAxoN3o4Xu0UHc1emVg2ZItYOpTJW1jOUfAdygYXf/F2IbAlEGJ3L0/k4AS9Q3kFwQ76eWZWOxGwdYtOVIE2epL+1XO83gb+NQ7u7DEEdXBBwNl5KvFRha0enqO9pMNnlsBwQ7Zf7KRHRdDqIef0uBsuzYX9TBjPJ2pwVLbhWHUgttbDC4S6ZPDV1LyLcVQ5Bo4+HblnV1H6pRiE29/Zwv9ExvMXVejVLgSUQuBM7jz136Jco4zK9FKze9jq7ElvVp+BaO2jE2pR5wm/AQmWtd4TAgAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SparkInferenceClusterStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Conditions": {
+  "HasAdminCidr8080": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AdminCidr"
+      },
+      ""
+     ]
+    }
+   ]
+  },
+  "HasAdminCidr4040": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AdminCidr"
+      },
+      ""
+     ]
+    }
+   ]
+  }
+ },
+ "Outputs": {
+  "MasterInstanceId": {
+   "Value": {
+    "Ref": "SparkMasterBE11B4FC"
+   }
+  },
+  "MasterPublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkMasterBE11B4FC",
+     "PublicIp"
+    ]
+   }
+  },
+  "MasterPrivateIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkMasterBE11B4FC",
+     "PrivateIp"
+    ]
+   }
+  },
+  "GpuWorkerInstanceId": {
+   "Value": {
+    "Ref": "SparkGpuWorkerD3C71041"
+   }
+  },
+  "GpuWorkerPublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkGpuWorkerD3C71041",
+     "PublicIp"
+    ]
+   }
+  },
+  "GpuWorkerPrivateIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkGpuWorkerD3C71041",
+     "PrivateIp"
+    ]
+   }
+  },
+  "MasterUiUrl": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "http://",
+      {
+       "Fn::GetAtt": [
+        "SparkMasterBE11B4FC",
+        "PublicIp"
+       ]
+      },
+      ":8080"
+     ]
+    ]
+   }
+  },
+  "ArtifactsBucketName": {
+   "Value": {
+    "Ref": "ArtifactsBucket2AAC5544"
+   }
+  },
+  "DashboardUrl": {
+   "Value": "https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=SparkInferenceCluster"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,654 @@
+{
+ "Description": "Single g4dn.xlarge with Deep Learning AMI for manual GPU benchmarks",
+ "Resources": {
+  "BenchVpcDF66FA75": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/Resource"
+   }
+  },
+  "BenchVpcpublicSubnet1SubnetD99C32BE": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet1/Subnet"
+   }
+  },
+  "BenchVpcpublicSubnet1RouteTable5B2635E1": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet1/RouteTable"
+   }
+  },
+  "BenchVpcpublicSubnet1RouteTableAssociation94BD3437": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "BenchVpcpublicSubnet1RouteTable5B2635E1"
+    },
+    "SubnetId": {
+     "Ref": "BenchVpcpublicSubnet1SubnetD99C32BE"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet1/RouteTableAssociation"
+   }
+  },
+  "BenchVpcpublicSubnet1DefaultRoute5901AE0B": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "BenchVpcIGW9FBD96DC"
+    },
+    "RouteTableId": {
+     "Ref": "BenchVpcpublicSubnet1RouteTable5B2635E1"
+    }
+   },
+   "DependsOn": [
+    "BenchVpcVPCGWAAEA78AB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet1/DefaultRoute"
+   }
+  },
+  "BenchVpcpublicSubnet2SubnetC28E7062": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet2/Subnet"
+   }
+  },
+  "BenchVpcpublicSubnet2RouteTableE10B7829": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet2/RouteTable"
+   }
+  },
+  "BenchVpcpublicSubnet2RouteTableAssociationBB23A924": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "BenchVpcpublicSubnet2RouteTableE10B7829"
+    },
+    "SubnetId": {
+     "Ref": "BenchVpcpublicSubnet2SubnetC28E7062"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet2/RouteTableAssociation"
+   }
+  },
+  "BenchVpcpublicSubnet2DefaultRoute935C4A36": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "BenchVpcIGW9FBD96DC"
+    },
+    "RouteTableId": {
+     "Ref": "BenchVpcpublicSubnet2RouteTableE10B7829"
+    }
+   },
+   "DependsOn": [
+    "BenchVpcVPCGWAAEA78AB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/publicSubnet2/DefaultRoute"
+   }
+  },
+  "BenchVpcIGW9FBD96DC": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "GpuBenchmarkStack/BenchVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/IGW"
+   }
+  },
+  "BenchVpcVPCGWAAEA78AB": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "BenchVpcIGW9FBD96DC"
+    },
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchVpc/VPCGW"
+   }
+  },
+  "BenchSgB1F02871": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "GPU benchmark - outbound only",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "BenchVpcDF66FA75"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchSg/Resource"
+   }
+  },
+  "ArtifactsBucket2AAC5544": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/ArtifactsBucket/Resource"
+   }
+  },
+  "ArtifactsBucketPolicy852CB646": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:PutBucketPolicy"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/ArtifactsBucket/Policy/Resource"
+   }
+  },
+  "ArtifactsBucketAutoDeleteObjectsCustomResource0E3B4320": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    }
+   },
+   "DependsOn": [
+    "ArtifactsBucketPolicy852CB646"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/ArtifactsBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-368287210840-us-east-1",
+     "S3Key": "b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "ArtifactsBucket2AAC5544"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "BenchRoleD9F05EBD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchRole/Resource"
+   }
+  },
+  "BenchRoleDefaultPolicy40C90E6B": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "ec2:DescribeInstances",
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "BenchRoleDefaultPolicy40C90E6B",
+    "Roles": [
+     {
+      "Ref": "BenchRoleD9F05EBD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/BenchRole/DefaultPolicy/Resource"
+   }
+  },
+  "GpuBenchInstanceInstanceProfile8C3FBE86": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "BenchRoleD9F05EBD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/GpuBenchInstance/InstanceProfile"
+   }
+  },
+  "GpuBenchInstance1F6698FC": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+       "VolumeSize": 150,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "GpuBenchInstanceInstanceProfile8C3FBE86"
+    },
+    "ImageId": "ami-0dbae69b339a3381f",
+    "InstanceType": "g4dn.xlarge",
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "BenchSgB1F02871",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": {
+       "Ref": "BenchVpcpublicSubnet1SubnetD99C32BE"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "gpu-benchmark-instance"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\nset -eux\nsystemctl enable docker && systemctl start docker\nusermod -aG docker ubuntu || true\napt-get update -y && apt-get install -y unzip jq || true\nnvidia-ctk runtime configure --runtime=docker || true\nsystemctl restart docker\nnvidia-smi\ndocker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu22.04 nvidia-smi || echo 'GPU Docker test failed'\nmkdir -p /opt/benchmark/app /opt/benchmark/results\necho 'BUCKET=",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "' >> /etc/environment\necho 'shutdown -h now' | at now + 4 hours 2>/dev/null || true\necho '=== GPU Instance Ready — SSM in and run benchmarks ==='"
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "BenchRoleDefaultPolicy40C90E6B",
+    "BenchRoleD9F05EBD",
+    "BenchVpcpublicSubnet1DefaultRoute5901AE0B",
+    "BenchVpcpublicSubnet1RouteTableAssociation94BD3437",
+    "BenchVpcpublicSubnet2DefaultRoute935C4A36",
+    "BenchVpcpublicSubnet2RouteTableAssociationBB23A924"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/GpuBenchInstance/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3VPTW+DMAz9Lb2n2aD7A6yHqqdFMPU6hdS0HuCgxBlCiP8+0bBFO+z0PvzkZ+cyy55lttOj35tru++wlnPF2rRCj/5jBpPL+TIYcWzooo5ChbpDU4WagFcvsdIGhnddd5D85BXeW4Oa0dJveCVnYnAEfNIMo562mk0VzNrceyAWFZjgkKeTs2F4FPwxzuRZk9lWRr4If5DzazBtPHBjEZTt0EzJjnoRqHs5lzY+8cCUTOynQjnbYAfLIkrwNrj1gODZ9kk29M9IOfuFV3Ci8B64Yn1Duq35t8BD4EWoie+Wng4ye5H57tMj7l0gxh5kGfEbas4bMr0BAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "GpuBenchmarkStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "InstanceId": {
+   "Value": {
+    "Ref": "GpuBenchInstance1F6698FC"
+   }
+  },
+  "PublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "GpuBenchInstance1F6698FC",
+     "PublicIp"
+    ]
+   }
+  },
+  "BucketName": {
+   "Value": {
+    "Ref": "ArtifactsBucket2AAC5544"
+   }
+  },
+  "SSMCommand": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "aws ssm start-session --target ",
+      {
+       "Ref": "GpuBenchInstance1F6698FC"
+      },
+      " --region us-east-1"
+     ]
+    ]
+   }
+  },
+  "UploadCommand": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "aws s3 cp project.zip s3://",
+      {
+       "Ref": "ArtifactsBucket2AAC5544"
+      },
+      "/project.zip --region us-east-1"
+     ]
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

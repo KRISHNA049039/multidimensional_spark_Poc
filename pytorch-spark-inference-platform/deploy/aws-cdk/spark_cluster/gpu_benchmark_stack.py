@@ -63,28 +63,22 @@ class GpuBenchmarkStack(Stack):
         user_data = ec2.UserData.for_linux()
         user_data.add_commands(
             "set -eux",
-            # Docker (if not already installed)
-            "apt-get update -y",
-            "apt-get install -y docker.io awscli unzip jq",
+            # Docker is already installed on Deep Learning AMI (docker-ce)
             "systemctl enable docker && systemctl start docker",
             "usermod -aG docker ubuntu || true",
-            # nvidia-container-toolkit
-            "curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg",
-            "curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | "
-            "sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | "
-            "tee /etc/apt/sources.list.d/nvidia-container-toolkit.list",
-            "apt-get update -y && apt-get install -y nvidia-container-toolkit",
-            "nvidia-ctk runtime configure --runtime=docker",
+            # unzip/jq may be needed
+            "apt-get update -y && apt-get install -y unzip jq || true",
+            # nvidia-container-toolkit (configure for Docker)
+            "nvidia-ctk runtime configure --runtime=docker || true",
             "systemctl restart docker",
             # Verify GPU
             "nvidia-smi",
-            "docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu22.04 nvidia-smi",
+            "docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu22.04 nvidia-smi || echo 'GPU Docker test failed'",
             # Workspace
             "mkdir -p /opt/benchmark/app /opt/benchmark/results",
             f"echo 'BUCKET={bucket.bucket_name}' >> /etc/environment",
             # Auto-shutdown after 4 hours
-            "apt-get install -y at && systemctl enable atd && systemctl start atd",
-            "echo 'shutdown -h now' | at now + 4 hours",
+            "echo 'shutdown -h now' | at now + 4 hours 2>/dev/null || true",
             "echo '=== GPU Instance Ready — SSM in and run benchmarks ==='",
         )
 

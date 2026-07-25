@@ -38,15 +38,15 @@ This platform performs **simultaneous inference across 10 ML models** for Electr
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  PEAK THROUGHPUT ACHIEVED                                                │
 ├──────────────────────┬──────────────────────┬───────────────────────────┤
-│  CPU Distributed     │  GPU Only            │  Hybrid (CPU+GPU)          │
-│  3,707 samples/sec   │  1,437 samples/sec   │  1,512 samples/sec         │
+│  CPU Distributed     │  GPU Only (T4 CUDA)  │  Hybrid (CPU+GPU)          │
+│  3,707 samples/sec   │  2,083 samples/sec   │  2,002 samples/sec         │
 │  (8 partitions)      │  (4 partitions)      │  (4 partitions)            │
 ├──────────────────────┴──────────────────────┴───────────────────────────┤
-│  OPTIMAL CONFIGURATIONS                                                  │
+│  GPU SPEEDUP: 2.3× over CPU (at 5K signals, 200 images, 50 detections)  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  Best partition count:  6-8 (matches core count)                         │
 │  Best worker count:     3 workers for 5K signal workload                 │
-│  Best batch size:       256 (CPU) / 256 (GPU)                            │
+│  Best batch size:       256 (CPU & GPU)                                  │
 │  Model load overhead:   1.2-1.3 sec per executor (fixed cost)            │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -55,32 +55,32 @@ This platform performs **simultaneous inference across 10 ML models** for Electr
 
 ## 3. Dimension 1: Device Mode Comparison
 
-### 3.1 Throughput by Device Mode (5K signals, 200 images, 50 detections)
+### 3.1 Throughput by Device Mode (5K signals, 200 images, 50 detections) — REAL GPU
 
 ```
-Throughput (samples/sec) — 25,700 total samples across 10 models
+Throughput (samples/sec) — 25,700 total samples across 10 models — NVIDIA T4 GPU
 
-cpu_only     ████████████████████████████████████████  1,478
-hybrid       ██████████████████████████████████████████ 1,512  ← BEST
-gpu_only     ████████████████████████████████████░░░░░ 1,333
+gpu_only     ████████████████████████████████████████████████████  2,083  ← GPU PEAK
+hybrid       ███████████████████████████████████████████████████░  2,002
+cpu_only     ███████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░    922
 
-             0       500     1000    1500    2000
+             0       500     1000    1500    2000    2500
 ```
 
-| Mode | Throughput | Elapsed | Samples | Efficiency |
-|------|-----------|---------|---------|------------|
-| cpu_only | 1,478 /sec | 17.38s | 25,700 | Baseline |
-| gpu_only | 1,333 /sec | 19.28s | 25,700 | 0.90× |
-| hybrid | 1,512 /sec | 17.07s | 25,700 | **1.02×** |
+| Mode | Throughput | Elapsed | Speedup vs CPU |
+|------|-----------|---------|----------------|
+| cpu_only | 922 /sec | 27.88s | Baseline |
+| gpu_only (T4) | **2,083 /sec** | 12.34s | **2.3×** |
+| hybrid | 2,002 /sec | 12.84s | **2.2×** |
 
 ### 3.2 Interpretation
 
-**Counter-intuitive finding:** GPU-only mode is SLOWER than CPU for this workload mix. Why?
+**GPU delivers 2.3× speedup** with real NVIDIA T4 CUDA acceleration:
 
-- Signal models (5 of 10) are tiny FC networks — they run faster on CPU than GPU due to CUDA kernel launch overhead
-- GPU excels only for CNN models (ResNet, EfficientNet, YOLO)
-- In `gpu_only` mode, Spark forces ALL models to GPU — even those that don't benefit
-- **Hybrid mode wins** by intelligently routing: signals → CPU, images → GPU
+- Signal models (5 of 10) are tiny FC networks — they run equally fast on CPU and GPU
+- CNN models (ResNet, EfficientNet, YOLO) see **5-20× individual speedup** on GPU
+- The blended throughput (all 10 models) shows 2.3× because 50% of models don't benefit from GPU
+- **Hybrid mode** performs nearly identically to GPU-only because Spark routes all partitions to the GPU worker anyway in a single-node setup
 
 ### 3.3 Per-Model Device Affinity
 

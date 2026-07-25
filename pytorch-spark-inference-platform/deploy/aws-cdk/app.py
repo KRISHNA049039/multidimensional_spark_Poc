@@ -10,6 +10,7 @@ Usage:
     cdk deploy GpuBenchmarkStack --context region=us-east-1
     cdk deploy SparkInferenceClusterStack --context region=us-east-1
 """
+import os
 import aws_cdk as cdk
 
 from spark_cluster.spark_cluster_stack import SparkClusterStack
@@ -18,10 +19,11 @@ from spark_cluster.gpu_benchmark_stack import GpuBenchmarkStack
 app = cdk.App()
 
 region = app.node.try_get_context("region") or "us-east-1"
-env = cdk.Environment(
-    account=app.node.try_get_context("account"),
-    region=region,
-)
+account = app.node.try_get_context("account") or os.environ.get("CDK_DEFAULT_ACCOUNT")
+
+# If no account specified, use environment-agnostic (won't work for AMI lookups)
+# So we require explicit account
+env = cdk.Environment(account=account, region=region)
 
 SparkClusterStack(app, "SparkInferenceClusterStack",
     description="Full Spark cluster: master + GPU worker",

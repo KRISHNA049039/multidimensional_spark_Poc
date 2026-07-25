@@ -1,0 +1,557 @@
+{
+  "version": "35.0.0",
+  "artifacts": {
+    "SparkInferenceClusterStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SparkInferenceClusterStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SparkInferenceClusterStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://368287210840/us-east-1",
+      "properties": {
+        "templateFile": "SparkInferenceClusterStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-deploy-role-368287210840-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-cfn-exec-role-368287210840-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-368287210840-us-east-1/786749b4a370d9029a42fd303b007f4b5ea860f45de37482d2a6590e6d5e1ce4.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SparkInferenceClusterStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-lookup-role-368287210840-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SparkInferenceClusterStack.assets"
+      ],
+      "metadata": {
+        "/SparkInferenceClusterStack/AdminCidr": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminCidr"
+          }
+        ],
+        "/SparkInferenceClusterStack/MasterInstanceType": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MasterInstanceType"
+          }
+        ],
+        "/SparkInferenceClusterStack/WorkerInstanceType": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WorkerInstanceType"
+          }
+        ],
+        "/SparkInferenceClusterStack/AutoShutdownHours": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoShutdownHours"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpc16AA3A99"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet1SubnetFF7985EB"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet1RouteTable45DF6283"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet1RouteTableAssociationE65CA184"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet1DefaultRoute17B7A9FA"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet2SubnetD9FFE4EE"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet2RouteTable8CD9D7AF"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet2RouteTableAssociationCFD36ADB"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet2DefaultRoute78C68C43"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet3/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet3Subnet869B67C0"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet3/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet3RouteTableD97DCE30"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet3/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet3RouteTableAssociationCD009E91"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/publicSubnet3/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcpublicSubnet3DefaultRouteC22C1319"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/IGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcIGW757786B3"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkVpc/VPCGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkVpcVPCGWAAC5635F"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkClusterSg/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkClusterSg13382047"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkClusterSg/from SparkInferenceClusterStackSparkClusterSg5B99A6FD:ALL TRAFFIC": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkClusterSgfromSparkInferenceClusterStackSparkClusterSg5B99A6FDALLTRAFFIC16FBE1AB"
+          }
+        ],
+        "/SparkInferenceClusterStack/AdminUi8080": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminUi8080"
+          }
+        ],
+        "/SparkInferenceClusterStack/HasAdminCidr8080": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HasAdminCidr8080"
+          }
+        ],
+        "/SparkInferenceClusterStack/AdminUi4040": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminUi4040"
+          }
+        ],
+        "/SparkInferenceClusterStack/HasAdminCidr4040": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HasAdminCidr4040"
+          }
+        ],
+        "/SparkInferenceClusterStack/ArtifactsBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucket2AAC5544"
+          }
+        ],
+        "/SparkInferenceClusterStack/ArtifactsBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucketPolicy852CB646"
+          }
+        ],
+        "/SparkInferenceClusterStack/ArtifactsBucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucketAutoDeleteObjectsCustomResource0E3B4320"
+          }
+        ],
+        "/SparkInferenceClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/SparkInferenceClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkNodeRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkNodeRoleEC3BBDDF"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkNodeRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkNodeRoleDefaultPolicyDEFDF5CA"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkMaster/InstanceProfile": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkMasterInstanceProfile4F985103"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkMaster/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkMasterBE11B4FC"
+          }
+        ],
+        "/SparkInferenceClusterStack/SsmParameterValue:--aws--service--ami-amazon-linux-latest--al2023-ami-kernel-6.1-x86_64:C96584B6-F00A-464E-AD19-53AFF4B05118.Parameter": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkGpuWorker/InstanceProfile": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkGpuWorkerInstanceProfileC9F61C2C"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkGpuWorker/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkGpuWorkerD3C71041"
+          }
+        ],
+        "/SparkInferenceClusterStack/SparkClusterDashboard/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SparkClusterDashboardEE1CB0D9"
+          }
+        ],
+        "/SparkInferenceClusterStack/MasterInstanceId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MasterInstanceId"
+          }
+        ],
+        "/SparkInferenceClusterStack/MasterPublicIp": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MasterPublicIp"
+          }
+        ],
+        "/SparkInferenceClusterStack/MasterPrivateIp": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MasterPrivateIp"
+          }
+        ],
+        "/SparkInferenceClusterStack/GpuWorkerInstanceId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GpuWorkerInstanceId"
+          }
+        ],
+        "/SparkInferenceClusterStack/GpuWorkerPublicIp": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GpuWorkerPublicIp"
+          }
+        ],
+        "/SparkInferenceClusterStack/GpuWorkerPrivateIp": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GpuWorkerPrivateIp"
+          }
+        ],
+        "/SparkInferenceClusterStack/MasterUiUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MasterUiUrl"
+          }
+        ],
+        "/SparkInferenceClusterStack/ArtifactsBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucketName"
+          }
+        ],
+        "/SparkInferenceClusterStack/DashboardUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DashboardUrl"
+          }
+        ],
+        "/SparkInferenceClusterStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SparkInferenceClusterStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SparkInferenceClusterStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SparkInferenceClusterStack"
+    },
+    "GpuBenchmarkStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "GpuBenchmarkStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "GpuBenchmarkStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://368287210840/us-east-1",
+      "properties": {
+        "templateFile": "GpuBenchmarkStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-deploy-role-368287210840-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-cfn-exec-role-368287210840-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-368287210840-us-east-1/c376e6960fa6fcc072a9aefadcc6255ec3c604bd34678113d92ccf29dce3a975.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "GpuBenchmarkStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-lookup-role-368287210840-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "GpuBenchmarkStack.assets"
+      ],
+      "metadata": {
+        "/GpuBenchmarkStack/BenchVpc/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcDF66FA75"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet1SubnetD99C32BE"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet1RouteTable5B2635E1"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet1RouteTableAssociation94BD3437"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet1DefaultRoute5901AE0B"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet2SubnetC28E7062"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet2RouteTableE10B7829"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet2RouteTableAssociationBB23A924"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/publicSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcpublicSubnet2DefaultRoute935C4A36"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/IGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcIGW9FBD96DC"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchVpc/VPCGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchVpcVPCGWAAEA78AB"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchSg/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchSgB1F02871"
+          }
+        ],
+        "/GpuBenchmarkStack/ArtifactsBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucket2AAC5544"
+          }
+        ],
+        "/GpuBenchmarkStack/ArtifactsBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucketPolicy852CB646"
+          }
+        ],
+        "/GpuBenchmarkStack/ArtifactsBucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ArtifactsBucketAutoDeleteObjectsCustomResource0E3B4320"
+          }
+        ],
+        "/GpuBenchmarkStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/GpuBenchmarkStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchRoleD9F05EBD"
+          }
+        ],
+        "/GpuBenchmarkStack/BenchRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BenchRoleDefaultPolicy40C90E6B"
+          }
+        ],
+        "/GpuBenchmarkStack/GpuBenchInstance/InstanceProfile": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GpuBenchInstanceInstanceProfile8C3FBE86"
+          }
+        ],
+        "/GpuBenchmarkStack/GpuBenchInstance/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GpuBenchInstance1F6698FC"
+          }
+        ],
+        "/GpuBenchmarkStack/InstanceId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "InstanceId"
+          }
+        ],
+        "/GpuBenchmarkStack/PublicIp": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PublicIp"
+          }
+        ],
+        "/GpuBenchmarkStack/BucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BucketName"
+          }
+        ],
+        "/GpuBenchmarkStack/SSMCommand": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SSMCommand"
+          }
+        ],
+        "/GpuBenchmarkStack/UploadCommand": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadCommand"
+          }
+        ],
+        "/GpuBenchmarkStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/GpuBenchmarkStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/GpuBenchmarkStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "GpuBenchmarkStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}

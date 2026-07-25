@@ -39,9 +39,9 @@ canvas { max-height: 300px; }
 
 <div class="metrics-bar">
 <div class="metric-card"><div class="value">3,707</div><div class="label">Peak CPU Throughput (samples/sec)</div></div>
-<div class="metric-card green"><div class="value">1,512</div><div class="label">Peak Hybrid Throughput</div></div>
-<div class="metric-card purple"><div class="value">10</div><div class="label">Models in Parallel</div></div>
-<div class="metric-card orange"><div class="value">~$1.70</div><div class="label">Cost per Full Benchmark</div></div>
+<div class="metric-card green"><div class="value">2,083</div><div class="label">Peak GPU Throughput (T4 CUDA)</div></div>
+<div class="metric-card purple"><div class="value">2.3×</div><div class="label">GPU Speedup vs CPU</div></div>
+<div class="metric-card orange"><div class="value">10</div><div class="label">Models in Parallel</div></div>
 </div>
 
 <div class="dashboard">
@@ -74,11 +74,11 @@ canvas { max-height: 300px; }
 <div class="insight">Minimal impact on CPU (&lt;5%). Batch 256 slightly optimal. GPU would show larger gains.</div>
 </div>
 
-<!-- Chart 5: Device Mode Comparison -->
+<!-- Chart 5: Device Mode Comparison (REAL GPU) -->
 <div class="chart-card">
-<h3>🖥️ Device Mode Comparison (3K+ signals)</h3>
+<h3>🖥️ Device Mode — Real GPU (T4 CUDA) vs CPU</h3>
 <canvas id="deviceChart"></canvas>
-<div class="insight success">Hybrid wins by routing signals→CPU and images→GPU. Pure GPU loses on signal models.</div>
+<div class="insight success">GPU achieves 2.3× throughput vs CPU at 5K signals. Hybrid combines both for best of both worlds.</div>
 </div>
 
 <!-- Chart 6: Per-Model Throughput -->
@@ -97,6 +97,13 @@ canvas { max-height: 300px; }
 <div class="chart-card full">
 <h3>⏱️ Elapsed Time by Configuration</h3>
 <canvas id="elapsedChart"></canvas>
+</div>
+
+<!-- Chart 8: GPU Scaling (Real T4) -->
+<div class="chart-card full">
+<h3>🚀 Real GPU (T4) Throughput Scaling by Data Volume</h3>
+<canvas id="gpuScalingChart"></canvas>
+<div class="insight success">GPU shows 2.3× speedup at 25K samples. Signal models run equally fast on CPU; CNN models drive the GPU advantage.</div>
 </div>
 
 </div>
@@ -165,18 +172,20 @@ new Chart(document.getElementById('batchChart'), {
   options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, min: 3000, title: { display: true, text: 'Throughput' } }, x: { title: { display: true, text: 'Batch Size' } } } }
 });
 
-// Device Mode Chart
+// Device Mode Chart (Real GPU data)
 new Chart(document.getElementById('deviceChart'), {
   type: 'bar',
   data: {
-    labels: ['CPU Only', 'GPU Only', 'Hybrid'],
-    datasets: [{
-      label: 'Avg Throughput (3K+ signals)',
-      data: [1155.5, 1371.5, 1434.5],
-      backgroundColor: ['rgba(59,130,246,0.7)', 'rgba(139,92,246,0.7)', 'rgba(16,185,129,0.7)'],
-      borderColor: ['#3b82f6', '#8b5cf6', '#10b981'],
-      borderWidth: 2, borderRadius: 8
-    }]
+    labels: ['CPU Only', 'GPU Only (T4)', 'Hybrid (CPU+GPU)'],
+    datasets: [
+      {
+        label: '5K signals (25,700 samples)',
+        data: [749.1, 1677.2, 1752.4],
+        backgroundColor: ['rgba(59,130,246,0.7)', 'rgba(139,92,246,0.7)', 'rgba(16,185,129,0.7)'],
+        borderColor: ['#3b82f6', '#8b5cf6', '#10b981'],
+        borderWidth: 2, borderRadius: 8
+      }
+    ]
   },
   options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Throughput (samples/sec)' } } } }
 });

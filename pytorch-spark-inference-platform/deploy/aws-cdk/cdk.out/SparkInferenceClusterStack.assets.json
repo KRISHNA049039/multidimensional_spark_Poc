@@ -1,0 +1,34 @@
+{
+  "version": "35.0.0",
+  "files": {
+    "b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6": {
+      "source": {
+        "path": "asset.b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "368287210840-us-east-1": {
+          "bucketName": "cdk-hnb659fds-assets-368287210840-us-east-1",
+          "objectKey": "b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-file-publishing-role-368287210840-us-east-1"
+        }
+      }
+    },
+    "786749b4a370d9029a42fd303b007f4b5ea860f45de37482d2a6590e6d5e1ce4": {
+      "source": {
+        "path": "SparkInferenceClusterStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "368287210840-us-east-1": {
+          "bucketName": "cdk-hnb659fds-assets-368287210840-us-east-1",
+          "objectKey": "786749b4a370d9029a42fd303b007f4b5ea860f45de37482d2a6590e6d5e1ce4.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-file-publishing-role-368287210840-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
