@@ -46,13 +46,10 @@ def run_single_gpu_sequential(models, data, batch_size=256):
     """
     Baseline: Run all 10 models sequentially on a single GPU.
     This is how most teams do inference without Spark.
+    Loads/unloads models one at a time to avoid OOM.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"\n  [SINGLE-GPU SEQUENTIAL] Device: {device}")
-
-    # Move all models to device
-    for name, model in models.items():
-        models[name] = model.to(device).eval()
 
     results = {}
     total_start = time.time()
@@ -65,28 +62,41 @@ def run_single_gpu_sequential(models, data, batch_size=256):
         model_start = time.time()
         processed = 0
 
-        with torch.no_grad():
-            for i in range(0, n, batch_size):
-                batch = torch.from_numpy(arr[i:i+batch_size]).float().to(device)
-                output = model(batch)
-                processed += len(batch)
+        try:
+            model = model.to(device).eval()
+            with torch.no_grad():
+                for i in range(0, n, batch_size):
+                    batch = torch.from_numpy(arr[i:i+batch_size]).float().to(device)
+                    output = model(batch)
+                    processed += len(batch)
 
-                # Capture sample I/O for first batch
-                if i == 0:
-                    results[model_name] = {
-                        "input_shape": list(batch.shape),
-                        "input_sample": batch[0].flatten()[:8].cpu().tolist(),
-                        "output_shape": list(output.shape),
-                        "output_sample": output[0].flatten()[:10].cpu().tolist(),
-                    }
+                    if i == 0:
+                        results[model_name] = {
+                            "input_shape": list(batch.shape),
+                            "input_sample": batch[0].flatten()[:8].cpu().tolist(),
+                            "output_shape": list(output.shape),
+                            "output_sample": output[0].flatten()[:10].cpu().tolist(),
+                        }
+                    del batch, output
 
-        model_elapsed = time.time() - model_start
-        results[model_name]["samples"] = processed
-        results[model_name]["time_sec"] = round(model_elapsed, 4)
-        results[model_name]["throughput"] = round(processed / model_elapsed, 1)
+            model_elapsed = time.time() - model_start
+            if model_name not in results:
+                results[model_name] = {}
+            results[model_name]["samples"] = processed
+            results[model_name]["time_sec"] = round(model_elapsed, 4)
+            results[model_name]["throughput"] = round(processed / model_elapsed, 1) if model_elapsed > 0 else 0
+            model.cpu()
+            if device == "cuda":
+                torch.cuda.empty_cache()
+
+        except torch.cuda.OutOfMemoryError:
+            print(f"    ⚠ OOM on {model_name} — VRAM limit! (This is why Spark is needed)")
+            results[model_name] = {"samples": 0, "time_sec": 0, "throughput": 0, "error": "CUDA_OOM"}
+            model.cpu()
+            torch.cuda.empty_cache()
 
     total_elapsed = time.time() - total_start
-    total_samples = sum(r["samples"] for r in results.values())
+    total_samples = sum(r.get("samples", 0) for r in results.values())
 
     return {
         "mode": "single_gpu_sequential",
@@ -186,6 +196,36 @@ def run_spark_config(models, model_classes, data, config, label):
     )
     elapsed = time.time() - start
     spark.stop()
+
+    # Print observability: partitions, workers, executors, devices
+    print(f"\n  ┌─── CLUSTER OBSERVABILITY ───────────────────────────────────────┐")
+    print(f"  │ Partitions: {config['partitions']:<5} Batch Size: {config['batch_size']:<5} Cores: {config.get('cores','4'):<4}│")
+    details = result.get("partition_details", [])
+    executors = {}
+    gpu_executors = 0
+    cpu_executors = 0
+    for d in details:
+        ex = d.get("executor", d)
+        eid = ex.get("id", ex.get("executor_id", "?"))
+        device_used = ex.get("device", "?")
+        hostname = ex.get("hostname", "?")
+        if eid not in executors:
+            executors[eid] = {"hostname": hostname, "device": device_used, "tasks": 0}
+            if device_used == "cuda":
+                gpu_executors += 1
+            else:
+                cpu_executors += 1
+        executors[eid]["tasks"] += 1
+
+    workers = set(e["hostname"] for e in executors.values())
+    print(f"  │ Workers: {len(workers):<5} Executors: {len(executors):<5} GPU: {gpu_executors:<3} CPU: {cpu_executors:<3}  │")
+    print(f"  ├─────────────────────────────────────────────────────────────────┤")
+    print(f"  │ {'Executor':<30} {'Device':<6} {'Tasks':<6} {'Host':<20}│")
+    print(f"  ├─────────────────────────────────────────────────────────────────┤")
+    for eid, info in executors.items():
+        print(f"  │ {eid[:28]:<30} {info['device']:<6} {info['tasks']:<6} {info['hostname'][:18]:<20}│")
+    print(f"  └─────────────────────────────────────────────────────────────────┘")
+    print(f"  Throughput: {result.get('total_throughput', 0):,.0f} samples/sec | Time: {elapsed:.2f}s")
 
     # Add I/O samples from partition details
     io_samples = {}
