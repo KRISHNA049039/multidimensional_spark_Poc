@@ -453,3 +453,218 @@ pytorch-spark-inference-platform/
 | Single Python worker per executor (task.cpus=2) | 10 models need 2.1 GB → can't fit 2 concurrent tasks | Reduces parallelism but prevents OOM |
 | torch.no_grad() everywhere | Inference only — no backprop needed | Cannot do fine-tuning in this path |
 | batch_size=256 | Balances GPU utilization vs memory for largest models (YOLO 640×640) | Smaller batches would underutilize GPU |
+
+
+---
+
+## 11. Model Predictions — What Each Model Does
+
+### Signal Processing Pipeline (5 models, input: 128-dim IQ vector)
+
+```
+              ┌──────────── RAW EW SIGNAL ────────────┐
+              │  128 IQ samples (64 In-phase +         │
+              │  64 Quadrature channel values)          │
+              │  Example: [0.28, 0.54, 0.45, -0.30,    │
+              │            -1.70, 0.02, 0.65, ...]     │
+              └────────────────┬───────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┬──────────────────────┐
+          ▼                    ▼                    ▼                      ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│  EW CLASSIFIER   │ │ SIGNAL DENOISER  │ │THREAT PRIORITIZER│ │  RF FINGERPRINTER │
+│                  │ │                  │ │                  │ │                  │
+│ Architecture:    │ │ Architecture:    │ │ Architecture:    │ │ Architecture:    │
+│  FC Network      │ │  Autoencoder     │ │  Multi-head      │ │  1D CNN          │
+│  128→256→512→    │ │  128→256→128→32  │ │  Attention       │ │  Conv1d layers   │
+│  256→128→64→8    │ │  →128→256→128    │ │  128→512→attn    │ │  128→32→64→128   │
+│                  │ │                  │ │  →256→128→1      │ │  →256→32         │
+│ Output: 8 logits │ │ Output: 128 vals │ │ Output: 1 score  │ │ Output: 32-dim   │
+│ (class scores)   │ │ (clean signal)   │ │ (0-1 priority)   │ │ (embedding)      │
+└────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘
+         │                    │                    │                    │
+         ▼                    ▼                    ▼                    ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ "Pulsed_Radar"   │ │ Clean signal for │ │ Priority: 0.53   │ │ Embedding vector │
+│  confidence: 85% │ │ downstream use   │ │ (medium threat)  │ │ for DB matching  │
+└──────────────────┘ └──────────────────┘ └──────────────────┘ └──────────────────┘
+
+                               │
+                               ▼
+                    ┌──────────────────┐
+                    │ ANOMALY DETECTOR │
+                    │                  │
+                    │ Architecture:    │
+                    │  VAE (Variational│
+                    │  Autoencoder)    │
+                    │  128→256→128→    │
+                    │  μ,σ→z→128→     │
+                    │  256→128         │
+                    │                  │
+                    │ Output: scalar   │
+                    │ (recon. error)   │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Score: 130.07    │
+                    │ (high = unknown  │
+                    │  signal type)    │
+                    └──────────────────┘
+```
+
+### Image Classification Pipeline (3 models, input: 3×224×224 RGB)
+
+```
+              ┌──────────── RGB IMAGE ────────────────┐
+              │  3 channels × 224 × 224 pixels         │
+              │  Normalized [0,1] range                 │
+              │  Example: surveillance camera frame     │
+              └────────────────┬───────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│    RESNET-18     │ │  MOBILENET-V3    │ │ EFFICIENTNET-B0  │
+│                  │ │                  │ │                  │
+│ 11.7M params    │ │ 5.4M params      │ │ 5.3M params      │
+│ 300 MB GPU      │ │ 150 MB GPU       │ │ 200 MB GPU       │
+│                  │ │                  │ │                  │
+│ Deep residual   │ │ Inverted         │ │ Compound-scaled  │
+│ blocks (18      │ │ residuals +      │ │ CNN with squeeze │
+│ layers)         │ │ squeeze-excite   │ │ -and-excitation  │
+│                  │ │                  │ │                  │
+│ Pretrained:     │ │ Pretrained:      │ │ Pretrained:      │
+│ ImageNet 1000   │ │ ImageNet 1000    │ │ ImageNet 1000    │
+│                  │ │                  │ │                  │
+│ Output: 1000    │ │ Output: 1000     │ │ Output: 1000     │
+│ class logits    │ │ class logits     │ │ class logits     │
+└────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Top predictions (after softmax):                              │
+│   Class 817: "military vehicle" — 92% confidence              │
+│   Class 424: "pickup truck"     — 4% confidence               │
+│   Class 656: "van"              — 2% confidence               │
+│                                                               │
+│ Use case: Identify platforms/vehicles in surveillance imagery  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Object Detection Pipeline (2 models, input: 3×640×640 RGB)
+
+```
+              ┌──────────── HIGH-RES IMAGE ───────────┐
+              │  3 channels × 640 × 640 pixels         │
+              │  Full surveillance frame                │
+              └────────────────┬───────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+          ┌──────────────────┐  ┌──────────────────┐
+          │  YOLOV8-NANO     │  │  YOLOV8-SMALL    │
+          │                  │  │                  │
+          │ 3.2M params      │  │ 11.2M params     │
+          │ 200 MB GPU       │  │ 400 MB GPU       │
+          │                  │  │                  │
+          │ Fastest variant  │  │ Better accuracy  │
+          │ 640→320→160→80   │  │ 640→320→160→80   │
+          │ Multi-scale      │  │ Multi-scale      │
+          │ feature pyramid  │  │ feature pyramid  │
+          │                  │  │                  │
+          │ Output: up to    │  │ Output: up to    │
+          │ 400 detections   │  │ 400 detections   │
+          └────────┬─────────┘  └────────┬─────────┘
+                   │                     │
+                   ▼                     ▼
+          ┌────────────────────────────────────────┐
+          │ Per detection:                          │
+          │   [x_center, y_center, width, height,   │
+          │    confidence, class_id]                 │
+          │                                         │
+          │ Example output:                         │
+          │   Box 1: [320, 240, 80, 60, 0.94, 0]   │
+          │          → Vehicle at center, 94% conf  │
+          │   Box 2: [100, 400, 40, 30, 0.87, 1]   │
+          │          → Person at bottom-left, 87%   │
+          │   Box 3: [500, 100, 120, 90, 0.72, 2]  │
+          │          → Building at top-right, 72%   │
+          │                                         │
+          │ Use case: Detect and localize threats    │
+          │ in real-time imagery                    │
+          └────────────────────────────────────────┘
+```
+
+---
+
+## 12. EW Signal Classes (ew_classifier predictions)
+
+| Class ID | Signal Type | Description |
+|----------|-------------|-------------|
+| 0 | CW_Radar | Continuous wave radar (tracking/illumination) |
+| 1 | Pulsed_Radar | Traditional pulse radar (search/surveillance) |
+| 2 | FMCW_Radar | Frequency-modulated continuous wave (automotive/altimeter) |
+| 3 | Phase_Coded_Radar | Phase-coded pulse radar (military LPI) |
+| 4 | Noise_Jammer | Broadband noise jamming signal |
+| 5 | Spot_Jammer | Narrowband spot jamming (targeted) |
+| 6 | Sweep_Jammer | Swept frequency jammer (barrage) |
+| 7 | Comm_Signal | Communications signal (friend/foe) |
+
+---
+
+## 13. End-to-End EW Processing Scenario
+
+```
+REAL-WORLD SCENARIO: A sensor array intercepts 5,000 unknown signals
+
+Step 1: Raw IQ data collected (5000 × 128 values each)
+        └── Fed into Spark cluster as input batch
+
+Step 2: PARALLEL inference on ALL 5 signal models simultaneously:
+        ├── ew_classifier:      "What TYPE of signal is this?"
+        │                       → "Pulsed_Radar" (85% confidence)
+        │
+        ├── signal_denoiser:    "Clean this signal for analysis"
+        │                       → 128 denoised IQ values
+        │
+        ├── threat_prioritizer: "How urgent is this threat?"
+        │                       → Priority score 0.87 (HIGH)
+        │
+        ├── rf_fingerprinter:   "Which specific emitter?"
+        │                       → 32-dim vector → DB lookup → "SA-11 Gadfly"
+        │
+        └── anomaly_detector:   "Is this something we've never seen?"
+                                → Score 12.3 (normal) or 450.7 (ANOMALY!)
+
+Step 3: PARALLEL inference on image/detection models:
+        ├── resnet18:           "What's in this surveillance image?"
+        │                       → "military_vehicle" (92%)
+        │
+        ├── yolov8_small:       "Where are the threats in frame?"
+        │                       → 3 bounding boxes with classes
+        │
+        └── Combined:           Full situational awareness picture
+
+Step 4: Results aggregated → threat assessment → operator display
+        Total time: ~12 seconds for 25,700 inferences across 10 models
+        Throughput: 2,083 samples/sec (with GPU)
+```
+
+---
+
+## 14. Model Parameter Summary
+
+| Model | Parameters | Memory (GPU) | Architecture | Speed (GPU) | Speed (CPU) |
+|-------|-----------|-------------|--------------|-------------|-------------|
+| ew_classifier | ~500K | 50 MB | FC 5-layer | 74K/s | 74K/s |
+| signal_denoiser | ~1.2M | 100 MB | Autoencoder | 175K/s | 175K/s |
+| threat_prioritizer | ~8M | 350 MB | Multi-head Attn | 29K/s | 29K/s |
+| rf_fingerprinter | ~2.5M | 120 MB | 1D-CNN | 4.7K/s | 4.7K/s |
+| anomaly_detector | ~1.8M | 100 MB | VAE | 150K/s | 150K/s |
+| resnet18 | 11.7M | 300 MB | ResNet (pretrained) | ~200/s | 21/s |
+| mobilenetv3 | 5.4M | 150 MB | Inverted Residual | ~1000/s | 170/s |
+| efficientnet_b0 | 5.3M | 200 MB | Compound Scaling | ~250/s | 25/s |
+| yolov8_nano | 3.2M | 200 MB | YOLO Backbone | ~150/s | 45/s |
+| yolov8_small | 11.2M | 400 MB | YOLO Backbone | ~100/s | 14/s |
+| **TOTAL** | **~51M** | **~2.1 GB** | — | — | — |
