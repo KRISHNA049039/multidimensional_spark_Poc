@@ -190,3 +190,61 @@ With a real T4 GPU, you should see:
 | mobilenetv3 | 170 | ~1,000-2,000 | 6-12× |
 
 The hybrid mode should significantly outperform both pure modes at scale.
+
+
+---
+
+## Quick Deploy & Run (Spark vs Single GPU Test)
+
+### From Windows PowerShell:
+
+```powershell
+# 1. Deploy infrastructure (one-time)
+cd C:\multidim_spark_poc\multidimensional_spark_Poc\pytorch-spark-inference-platform\deploy\aws-cdk
+npx cdk deploy GpuBenchmarkStack --context region=us-east-1 --context account=368287210840 --require-approval never
+
+# 2. Upload code
+cd C:\multidim_spark_poc\multidimensional_spark_Poc\pytorch-spark-inference-platform
+$bucket = aws cloudformation describe-stacks --stack-name GpuBenchmarkStack --region us-east-1 --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text
+
+python -c "
+import zipfile, os
+exclude = {'.git','.venv','cdk.out','node_modules','__pycache__','project.zip','results'}
+with zipfile.ZipFile('project.zip','w',zipfile.ZIP_DEFLATED) as zf:
+    for r,d,files in os.walk('.'):
+        d[:] = [x for x in d if x not in exclude]
+        for f in files:
+            if f=='project.zip': continue
+            p=os.path.join(r,f); a=p.replace('\\','/').lstrip('./')
+            zf.write(p,a)
+    print(f'Zipped {len(zf.namelist())} files')
+"
+
+aws s3 cp project.zip "s3://$bucket/project.zip" --region us-east-1
+```
+
+### Inside SSM Session (browser console):
+
+```bash
+# Pull code, build, and run benchmark
+source /etc/environment
+aws s3 cp s3://$BUCKET/project.zip /opt/benchmark/project.zip --region us-east-1
+cd /opt/benchmark && rm -rf app/* && unzip -o project.zip -d app && cd app
+docker build --network host -t multi-model-inference:latest -f deploy/Dockerfile .
+chmod +x deploy/scripts/run_spark_vs_single.sh
+deploy/scripts/run_spark_vs_single.sh
+```
+
+### Download results (Windows):
+
+```powershell
+$bucket = aws cloudformation describe-stacks --stack-name GpuBenchmarkStack --region us-east-1 --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text
+aws s3 sync "s3://$bucket/results/" .\results\spark_vs_single\ --region us-east-1
+```
+
+### Tear down:
+
+```powershell
+cd C:\multidim_spark_poc\multidimensional_spark_Poc\pytorch-spark-inference-platform\deploy\aws-cdk
+npx cdk destroy GpuBenchmarkStack --context region=us-east-1 --context account=368287210840 --force
+```
