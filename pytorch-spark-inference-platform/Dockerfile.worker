@@ -1,0 +1,118 @@
+# ===========================================================================
+# Spark Worker with PyTorch + CUDA — for cluster mode with GPU support
+#
+# Build on an INTERNET-CONNECTED machine only. Target (airgapped) machines
+# never run `docker build` — they only `docker load` the exported tarball.
+#
+# Two build targets — each must be built AND saved separately:
+#   docker build --target cpu -t pytorch-spark-worker:cpu -f Dockerfile.worker .
+#   docker build --target gpu -t pytorch-spark-worker:gpu -f Dockerfile.worker .
+#
+#   docker save -o worker_cpu.tar pytorch-spark-worker:cpu
+#   docker save -o worker_gpu.tar pytorch-spark-worker:gpu
+#
+# On each target machine (matching hardware to image):
+#   docker load -i worker_cpu.tar     # CPU worker machines
+#   docker load -i worker_gpu.tar     # GPU worker machines
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: CPU Worker (no GPU dependencies)
+# ---------------------------------------------------------------------------
+FROM python:3.14-slim AS cpu
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Java for Spark
+RUN mkdir -p /opt/java && \
+    wget -q https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.11%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.11_9.tar.gz -O /tmp/java.tar.gz && \
+    tar -xzf /tmp/java.tar.gz -C /opt/java --strip-components=1 && \
+    rm /tmp/java.tar.gz
+
+ENV JAVA_HOME=/opt/java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Spark 4.2.0
+RUN wget -q https://archive.apache.org/dist/spark/spark-4.2.0/spark-4.2.0-bin-hadoop3.tgz -O /tmp/spark.tgz && \
+    tar -xzf /tmp/spark.tgz -C /opt/ && \
+    mv /opt/spark-4.2.0-bin-hadoop3 /opt/spark && \
+    rm /tmp/spark.tgz
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
+ENV PYSPARK_PYTHON=python
+
+# CPU-only PyTorch — pinned stable release, not a floating index resolve
+RUN python -m pip install --no-cache-dir \
+    torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu && \
+    python -m pip install --no-cache-dir \
+    pyspark==4.2.0 psutil numpy pandas scikit-learn matplotlib
+
+COPY . /app/
+ENV PYTHONPATH=/app
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Stage 2: GPU Worker (CUDA 12.8 + RTX 5060 Blackwell / sm_120 support)
+# ---------------------------------------------------------------------------
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04 AS gpu
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+# Python 3.14 via deadsnakes — MUST match Master and CPU worker exactly
+# (PySpark serialization protocol requires identical Python across all nodes)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common curl wget procps ca-certificates \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.14 python3.14-venv python3.14-dev \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.14 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 1 \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.14 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Java for Spark
+RUN mkdir -p /opt/java && \
+    wget -q https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.11%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.11_9.tar.gz -O /tmp/java.tar.gz && \
+    tar -xzf /tmp/java.tar.gz -C /opt/java --strip-components=1 && \
+    rm /tmp/java.tar.gz
+
+ENV JAVA_HOME=/opt/java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Spark 4.2.0 — identical version to CPU stage and Master
+RUN wget -q https://archive.apache.org/dist/spark/spark-4.2.0/spark-4.2.0-bin-hadoop3.tgz -O /tmp/spark.tgz && \
+    tar -xzf /tmp/spark.tgz -C /opt/ && \
+    mv /opt/spark-4.2.0-bin-hadoop3 /opt/spark && \
+    rm /tmp/spark.tgz
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
+ENV PYSPARK_PYTHON=python
+
+# GPU PyTorch — PINNED to a specific nightly build, not a floating --pre resolve.
+# Replace this exact version string with whatever nightly you've verified
+# works on sm_120 (RTX 5060). Find it via:
+#   docker run --rm pytorch-spark-worker:gpu python -m pip show torch
+# then hardcode it here so rebuilds are reproducible, not a moving target.
+RUN python -m pip install --no-cache-dir \
+    torch==2.9.0.dev20250115+cu128 torchvision==0.24.0.dev20250115+cu128 \
+    --index-url https://download.pytorch.org/whl/nightly/cu128 && \
+    python -m pip install --no-cache-dir \
+    pyspark==4.2.0 psutil numpy pandas scikit-learn matplotlib
+
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV CUDA_VISIBLE_DEVICES=0
+
+# Verify GPU + confirm Python version matches the cluster requirement — keep
+# this uncommented on your first few builds, comment out once trusted
+RUN python -c "import sys; print(f'Python: {sys.version}')" && \
+    python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}, torch: {torch.__version__}')"
+
+COPY . /app
+ENV PYTHONPATH=/app
+WORKDIR /app
