@@ -1,0 +1,1205 @@
+{
+ "Description": "Native (Docker-free) Windows Server Spark cluster: master + GPU worker",
+ "Parameters": {
+  "AdminCidr": {
+   "Type": "String",
+   "Default": "",
+   "Description": "CIDR allowed to reach Spark UIs (8080/4040) and RDP (3389), e.g. '203.0.113.5/32'."
+  },
+  "MasterInstanceType": {
+   "Type": "String",
+   "Default": "m5.xlarge",
+   "Description": "Instance type for Spark master (CPU, Windows). Also acts as a CPU worker."
+  },
+  "WorkerInstanceType": {
+   "Type": "String",
+   "Default": "g4dn.xlarge",
+   "Description": "Instance type for the Windows GPU worker."
+  },
+  "AutoShutdownHours": {
+   "Type": "Number",
+   "Default": 4,
+   "Description": "Safety net: instances shut down after this many hours (0 = disabled).",
+   "MinValue": 0
+  },
+  "KeyPairName": {
+   "Type": "String",
+   "Default": "",
+   "Description": "EC2 key pair for RDP password retrieval (optional - SSM Session Manager works without one)."
+  },
+  "SsmParameterValueawsserviceamiwindowslatestWindowsServer2022EnglishFullBaseC96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Resources": {
+  "WindowsSparkVpc3913D153": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/Resource"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet1Subnet26F6FDEF": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-south-1a",
+    "CidrBlock": "10.0.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1/Subnet"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet1RouteTable77F35A76": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1/RouteTable"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet1RouteTableAssociation64AFFDFF": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet1RouteTable77F35A76"
+    },
+    "SubnetId": {
+     "Ref": "WindowsSparkVpcpublicSubnet1Subnet26F6FDEF"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1/RouteTableAssociation"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet1DefaultRouteCD2FF0E3": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "WindowsSparkVpcIGWDDA46D8A"
+    },
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet1RouteTable77F35A76"
+    }
+   },
+   "DependsOn": [
+    "WindowsSparkVpcVPCGW18BCD0F6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet1/DefaultRoute"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet2Subnet8F573378": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-south-1b",
+    "CidrBlock": "10.0.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2/Subnet"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet2RouteTableF181665B": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2/RouteTable"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet2RouteTableAssociationF8407D6F": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet2RouteTableF181665B"
+    },
+    "SubnetId": {
+     "Ref": "WindowsSparkVpcpublicSubnet2Subnet8F573378"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2/RouteTableAssociation"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet2DefaultRoute5A24B35F": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "WindowsSparkVpcIGWDDA46D8A"
+    },
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet2RouteTableF181665B"
+    }
+   },
+   "DependsOn": [
+    "WindowsSparkVpcVPCGW18BCD0F6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet2/DefaultRoute"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet3SubnetEFDE1534": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-south-1c",
+    "CidrBlock": "10.0.2.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3/Subnet"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet3RouteTable70837EF0": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3/RouteTable"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet3RouteTableAssociation3EA5F9D7": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet3RouteTable70837EF0"
+    },
+    "SubnetId": {
+     "Ref": "WindowsSparkVpcpublicSubnet3SubnetEFDE1534"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3/RouteTableAssociation"
+   }
+  },
+  "WindowsSparkVpcpublicSubnet3DefaultRoute4BEED37D": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "WindowsSparkVpcIGWDDA46D8A"
+    },
+    "RouteTableId": {
+     "Ref": "WindowsSparkVpcpublicSubnet3RouteTable70837EF0"
+    }
+   },
+   "DependsOn": [
+    "WindowsSparkVpcVPCGW18BCD0F6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/publicSubnet3/DefaultRoute"
+   }
+  },
+  "WindowsSparkVpcIGWDDA46D8A": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "WindowsSparkClusterStack/WindowsSparkVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/IGW"
+   }
+  },
+  "WindowsSparkVpcVPCGW18BCD0F6": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "WindowsSparkVpcIGWDDA46D8A"
+    },
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkVpc/VPCGW"
+   }
+  },
+  "WindowsSparkClusterSg9DB2F1B2": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Windows Spark inference cluster - master and worker traffic",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "WindowsSparkVpc3913D153"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkClusterSg/Resource"
+   }
+  },
+  "WindowsSparkClusterSgfromWindowsSparkClusterStackWindowsSparkClusterSgA5A710B3ALLTRAFFICD7EB6FC6": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Inter-node Spark traffic",
+    "GroupId": {
+     "Fn::GetAtt": [
+      "WindowsSparkClusterSg9DB2F1B2",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "-1",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "WindowsSparkClusterSg9DB2F1B2",
+      "GroupId"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkClusterSg/from WindowsSparkClusterStackWindowsSparkClusterSgA5A710B3:ALL TRAFFIC"
+   }
+  },
+  "AdminUi8080": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "CidrIp": {
+     "Ref": "AdminCidr"
+    },
+    "FromPort": 8080,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "WindowsSparkClusterSg9DB2F1B2",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 8080
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/AdminUi8080"
+   },
+   "Condition": "HasAdminCidr8080"
+  },
+  "AdminUi4040": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "CidrIp": {
+     "Ref": "AdminCidr"
+    },
+    "FromPort": 4040,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "WindowsSparkClusterSg9DB2F1B2",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 4040
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/AdminUi4040"
+   },
+   "Condition": "HasAdminCidr4040"
+  },
+  "AdminRdp": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "CidrIp": {
+     "Ref": "AdminCidr"
+    },
+    "FromPort": 3389,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "WindowsSparkClusterSg9DB2F1B2",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 3389
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/AdminRdp"
+   },
+   "Condition": "HasAdminCidrRdp"
+  },
+  "ArtifactsBucket2AAC5544": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/ArtifactsBucket/Resource"
+   }
+  },
+  "ArtifactsBucketPolicy852CB646": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:PutBucketPolicy"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/ArtifactsBucket/Policy/Resource"
+   }
+  },
+  "ArtifactsBucketAutoDeleteObjectsCustomResource0E3B4320": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "ArtifactsBucket2AAC5544"
+    }
+   },
+   "DependsOn": [
+    "ArtifactsBucketPolicy852CB646"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/ArtifactsBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-368287210840-ap-south-1",
+     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "ArtifactsBucket2AAC5544"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "WindowsSparkNodeRoleBD13576A": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Windows Spark inference nodes - SSM, CloudWatch, S3, EC2 describe",
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/CloudWatchAgentServerPolicy"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkNodeRole/Resource"
+   }
+  },
+  "WindowsSparkNodeRoleDefaultPolicy45C7809A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactsBucket2AAC5544",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactsBucket2AAC5544",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "cloudwatch:PutMetricData",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:ModifyVolume"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "WindowsSparkNodeRoleDefaultPolicy45C7809A",
+    "Roles": [
+     {
+      "Ref": "WindowsSparkNodeRoleBD13576A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkNodeRole/DefaultPolicy/Resource"
+   }
+  },
+  "SparkMasterWindowsInstanceProfileEFBEDBD9": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "WindowsSparkNodeRoleBD13576A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/SparkMasterWindows/InstanceProfile"
+   }
+  },
+  "SparkMasterWindows0F55B191": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "ap-south-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+       "VolumeSize": 100,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "SparkMasterWindowsInstanceProfileEFBEDBD9"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiwindowslatestWindowsServer2022EnglishFullBaseC96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": {
+     "Ref": "MasterInstanceType"
+    },
+    "KeyName": {
+     "Fn::If": [
+      "HasKeyPairMaster",
+      {
+       "Ref": "KeyPairName"
+      },
+      {
+       "Ref": "AWS::NoValue"
+      }
+     ]
+    },
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "WindowsSparkClusterSg9DB2F1B2",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": {
+       "Ref": "WindowsSparkVpcpublicSubnet1Subnet26F6FDEF"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "spark-master-windows"
+     },
+     {
+      "Key": "Role",
+      "Value": "spark-master"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "<powershell>New-Item -ItemType Directory -Force -Path C:\\spark, C:\\spark\\logs | Out-Null\n@'\n$ErrorActionPreference = 'Continue'\n$Bucket = \"",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "\"\n$Region = \"ap-south-1\"\n[Environment]::SetEnvironmentVariable('ARTIFACTS_BUCKET', $Bucket, 'Machine')\n[Environment]::SetEnvironmentVariable('AWS_DEFAULT_REGION', $Region, 'Machine')\n$env:ARTIFACTS_BUCKET = $Bucket\n$env:AWS_DEFAULT_REGION = $Region\n\n# --- Own private IP (IMDSv2) ---\n$Token = Invoke-RestMethod -Method PUT -Uri http://169.254.169.254/latest/api/token -Headers @{'X-aws-ec2-metadata-token-ttl-seconds'='21600'}\n$PrivateIp = Invoke-RestMethod -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -Headers @{'X-aws-ec2-metadata-token'=$Token}\n\n# --- Java 17 (Temurin) ---\n$JavaHome = 'C:\\Program Files\\Eclipse Adoptium\\jdk-17'\nif (-not (Test-Path \"$JavaHome\\bin\\java.exe\")) {\n    Invoke-WebRequest -Uri 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse' -OutFile C:\\temurin17.msi -UseBasicParsing\n    Start-Process msiexec.exe -ArgumentList \"/i C:\\temurin17.msi /quiet /norestart INSTALLDIR=`\"$JavaHome`\"\" -Wait\n}\n[Environment]::SetEnvironmentVariable('JAVA_HOME', $JavaHome, 'Machine')\n\n# --- Python 3.12 ---\n$PythonExe = 'C:\\Python312\\python.exe'\nif (-not (Test-Path $PythonExe)) {\n    Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' -OutFile C:\\python-installer.exe -UseBasicParsing\n    Start-Process C:\\python-installer.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=C:\\Python312' -Wait\n}\n[Environment]::SetEnvironmentVariable('PYSPARK_PYTHON', $PythonExe, 'Machine')\n[Environment]::SetEnvironmentVariable('PYSPARK_DRIVER_PYTHON', $PythonExe, 'Machine')\n\n# --- Spark 3.5.1 ---\n$SparkHome = 'C:\\spark\\spark-3.5.1-bin-hadoop3'\nif (-not (Test-Path \"$SparkHome\\bin\\spark-class2.cmd\")) {\n    Invoke-WebRequest -Uri 'https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz' -OutFile C:\\spark\\spark.tgz -UseBasicParsing\n    tar -xzf C:\\spark\\spark.tgz -C C:\\spark\n}\n[Environment]::SetEnvironmentVariable('SPARK_HOME', $SparkHome, 'Machine')\n$env:SPARK_HOME = $SparkHome\n$env:JAVA_HOME = $JavaHome\n$env:Path = \"$SparkHome\\bin;$JavaHome\\bin;C:\\Python312;C:\\Python312\\Scripts;$env:Path\"\n\n# --- Project code from S3 (re-run manually via SSM after updating project.zip to refresh) ---\naws s3 cp \"s3://$Bucket/inference/project.zip\" C:\\project.zip\nif (Test-Path 'C:\\project.zip') {\n    Expand-Archive -Path C:\\project.zip -DestinationPath C:\\app -Force\n    & $PythonExe -m pip install --quiet pyspark==3.5.1 boto3\n    & $PythonExe -m pip install --quiet -r C:\\app\\requirements.txt\n    \n}\n\n# --- CloudWatch Agent (Windows) ---\n$CwAgentExe = 'C:\\Program Files\\Amazon\\AmazonCloudWatchAgent\\amazon-cloudwatch-agent.exe'\nif (-not (Test-Path $CwAgentExe)) {\n    Invoke-WebRequest -Uri 'https://s3.amazonaws.com/amazoncloudwatch-agent/windows/amd64/latest/amazon-cloudwatch-agent.msi' -OutFile C:\\cwagent.msi -UseBasicParsing\n    Start-Process msiexec.exe -ArgumentList '/i C:\\cwagent.msi /quiet /norestart' -Wait\n        '{\n  \"agent\": {\"metrics_collection_interval\": 30},\n  \"metrics\": {\n    \"namespace\": \"CWAgent\",\n    \"append_dimensions\": {\"InstanceId\": \"${aws:InstanceId}\"},\n    \"metrics_collected\": {\n      \"Processor\": {\n        \"measurement\": [{\"name\": \"% Processor Time\", \"rename\": \"cpu_usage_active\", \"unit\": \"Percent\"}],\n        \"resources\": [\"_Total\"]\n      },\n      \"Memory\": {\n        \"measurement\": [{\"name\": \"% Committed Bytes In Use\", \"rename\": \"mem_used_percent\", \"unit\": \"Percent\"}]\n      },\n      \"LogicalDisk\": {\n        \"measurement\": [{\"name\": \"% Free Space\", \"rename\": \"disk_used_percent\", \"unit\": \"Percent\"}],\n        \"resources\": [\"C:\"]\n      }\n    }\n  }\n}' | Set-Content -Path C:\\cwagent-config.json -Encoding UTF8\n    & 'C:\\Program Files\\Amazon\\AmazonCloudWatchAgent\\amazon-cloudwatch-agent-ctl.ps1' -a fetch-config -m ec2 -s -c file:C:\\cwagent-config.json\n}\n\n# --- Auto-shutdown safety net ---\nif (\"",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        "\" -ne \"0\") {\n    $ShutdownTime = (Get-Date).AddHours(",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        ")\n    schtasks /create /tn AutoShutdown /sc once /sd $ShutdownTime.ToString('MM/dd/yyyy') /st $ShutdownTime.ToString('HH:mm') /tr \"shutdown /s /t 0\" /ru SYSTEM /f 2>$null | Out-Null\n}\n# --- Start Spark master + a local CPU worker (idempotent) ---\n$MasterRunning = Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" -ErrorAction SilentlyContinue |\n    Where-Object { $_.CommandLine -match 'deploy\\.master\\.Master' }\nif (-not $MasterRunning) {\n    Start-Process -FilePath \"$SparkHome\\bin\\spark-class2.cmd\" `\n        -ArgumentList 'org.apache.spark.deploy.master.Master','--host',$PrivateIp,'--port','7077' `\n        -WindowStyle Hidden `\n        -RedirectStandardOutput C:\\spark\\logs\\master.log -RedirectStandardError C:\\spark\\logs\\master.err.log\n    Start-Sleep -Seconds 10\n}\n\n$WorkerRunning = Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" -ErrorAction SilentlyContinue |\n    Where-Object { $_.CommandLine -match 'deploy\\.worker\\.Worker' }\nif (-not $WorkerRunning) {\n    Start-Process -FilePath \"$SparkHome\\bin\\spark-class2.cmd\" `\n        -ArgumentList 'org.apache.spark.deploy.worker.Worker',\"spark://${PrivateIp}:7077\",'-c','2','-m','4g' `\n        -WindowStyle Hidden `\n        -RedirectStandardOutput C:\\spark\\logs\\worker.log -RedirectStandardError C:\\spark\\logs\\worker.err.log\n}\n'@ | Set-Content -Path 'C:\\spark\\bootstrap.ps1' -Encoding UTF8\nschtasks /create /tn SparkBootstrap /sc onstart /ru SYSTEM /rl HIGHEST /tr \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\spark\\bootstrap.ps1\" /f\nschtasks /run /tn SparkBootstrap</powershell>"
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "WindowsSparkNodeRoleDefaultPolicy45C7809A",
+    "WindowsSparkNodeRoleBD13576A",
+    "WindowsSparkVpcpublicSubnet1DefaultRouteCD2FF0E3",
+    "WindowsSparkVpcpublicSubnet1RouteTableAssociation64AFFDFF",
+    "WindowsSparkVpcpublicSubnet2DefaultRoute5A24B35F",
+    "WindowsSparkVpcpublicSubnet2RouteTableAssociationF8407D6F",
+    "WindowsSparkVpcpublicSubnet3DefaultRoute4BEED37D",
+    "WindowsSparkVpcpublicSubnet3RouteTableAssociation3EA5F9D7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/SparkMasterWindows/Resource"
+   }
+  },
+  "SparkGpuWorkerWindowsInstanceProfile54B78C90": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "WindowsSparkNodeRoleBD13576A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/SparkGpuWorkerWindows/InstanceProfile"
+   }
+  },
+  "SparkGpuWorkerWindows87D6FB4D": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "ap-south-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+       "VolumeSize": 150,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "SparkGpuWorkerWindowsInstanceProfile54B78C90"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiwindowslatestWindowsServer2022EnglishFullBaseC96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": {
+     "Ref": "WorkerInstanceType"
+    },
+    "KeyName": {
+     "Fn::If": [
+      "HasKeyPairWorker",
+      {
+       "Ref": "KeyPairName"
+      },
+      {
+       "Ref": "AWS::NoValue"
+      }
+     ]
+    },
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "WindowsSparkClusterSg9DB2F1B2",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": {
+       "Ref": "WindowsSparkVpcpublicSubnet1Subnet26F6FDEF"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "spark-gpu-worker-windows"
+     },
+     {
+      "Key": "Role",
+      "Value": "spark-worker"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "<powershell>New-Item -ItemType Directory -Force -Path C:\\spark, C:\\spark\\logs | Out-Null\n@'\n$ErrorActionPreference = 'Continue'\n$Bucket = \"",
+        {
+         "Ref": "ArtifactsBucket2AAC5544"
+        },
+        "\"\n$Region = \"ap-south-1\"\n[Environment]::SetEnvironmentVariable('ARTIFACTS_BUCKET', $Bucket, 'Machine')\n[Environment]::SetEnvironmentVariable('AWS_DEFAULT_REGION', $Region, 'Machine')\n$env:ARTIFACTS_BUCKET = $Bucket\n$env:AWS_DEFAULT_REGION = $Region\n\n# --- Own private IP (IMDSv2) ---\n$Token = Invoke-RestMethod -Method PUT -Uri http://169.254.169.254/latest/api/token -Headers @{'X-aws-ec2-metadata-token-ttl-seconds'='21600'}\n$PrivateIp = Invoke-RestMethod -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -Headers @{'X-aws-ec2-metadata-token'=$Token}\n\n# --- Java 17 (Temurin) ---\n$JavaHome = 'C:\\Program Files\\Eclipse Adoptium\\jdk-17'\nif (-not (Test-Path \"$JavaHome\\bin\\java.exe\")) {\n    Invoke-WebRequest -Uri 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse' -OutFile C:\\temurin17.msi -UseBasicParsing\n    Start-Process msiexec.exe -ArgumentList \"/i C:\\temurin17.msi /quiet /norestart INSTALLDIR=`\"$JavaHome`\"\" -Wait\n}\n[Environment]::SetEnvironmentVariable('JAVA_HOME', $JavaHome, 'Machine')\n\n# --- Python 3.12 ---\n$PythonExe = 'C:\\Python312\\python.exe'\nif (-not (Test-Path $PythonExe)) {\n    Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' -OutFile C:\\python-installer.exe -UseBasicParsing\n    Start-Process C:\\python-installer.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=C:\\Python312' -Wait\n}\n[Environment]::SetEnvironmentVariable('PYSPARK_PYTHON', $PythonExe, 'Machine')\n[Environment]::SetEnvironmentVariable('PYSPARK_DRIVER_PYTHON', $PythonExe, 'Machine')\n\n# --- Spark 3.5.1 ---\n$SparkHome = 'C:\\spark\\spark-3.5.1-bin-hadoop3'\nif (-not (Test-Path \"$SparkHome\\bin\\spark-class2.cmd\")) {\n    Invoke-WebRequest -Uri 'https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz' -OutFile C:\\spark\\spark.tgz -UseBasicParsing\n    tar -xzf C:\\spark\\spark.tgz -C C:\\spark\n}\n[Environment]::SetEnvironmentVariable('SPARK_HOME', $SparkHome, 'Machine')\n$env:SPARK_HOME = $SparkHome\n$env:JAVA_HOME = $JavaHome\n$env:Path = \"$SparkHome\\bin;$JavaHome\\bin;C:\\Python312;C:\\Python312\\Scripts;$env:Path\"\n\n# --- Project code from S3 (re-run manually via SSM after updating project.zip to refresh) ---\naws s3 cp \"s3://$Bucket/inference/project.zip\" C:\\project.zip\nif (Test-Path 'C:\\project.zip') {\n    Expand-Archive -Path C:\\project.zip -DestinationPath C:\\app -Force\n    & $PythonExe -m pip install --quiet pyspark==3.5.1 boto3\n    & $PythonExe -m pip install --quiet -r C:\\app\\requirements.txt\n    & $PythonExe -m pip install --quiet --force-reinstall torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu126\n}\n\n# --- CloudWatch Agent (Windows) ---\n$CwAgentExe = 'C:\\Program Files\\Amazon\\AmazonCloudWatchAgent\\amazon-cloudwatch-agent.exe'\nif (-not (Test-Path $CwAgentExe)) {\n    Invoke-WebRequest -Uri 'https://s3.amazonaws.com/amazoncloudwatch-agent/windows/amd64/latest/amazon-cloudwatch-agent.msi' -OutFile C:\\cwagent.msi -UseBasicParsing\n    Start-Process msiexec.exe -ArgumentList '/i C:\\cwagent.msi /quiet /norestart' -Wait\n        '{\n  \"agent\": {\"metrics_collection_interval\": 30},\n  \"metrics\": {\n    \"namespace\": \"CWAgent\",\n    \"append_dimensions\": {\"InstanceId\": \"${aws:InstanceId}\"},\n    \"metrics_collected\": {\n      \"Processor\": {\n        \"measurement\": [{\"name\": \"% Processor Time\", \"rename\": \"cpu_usage_active\", \"unit\": \"Percent\"}],\n        \"resources\": [\"_Total\"]\n      },\n      \"Memory\": {\n        \"measurement\": [{\"name\": \"% Committed Bytes In Use\", \"rename\": \"mem_used_percent\", \"unit\": \"Percent\"}]\n      },\n      \"LogicalDisk\": {\n        \"measurement\": [{\"name\": \"% Free Space\", \"rename\": \"disk_used_percent\", \"unit\": \"Percent\"}],\n        \"resources\": [\"C:\"]\n      }\n    }\n  }\n}' | Set-Content -Path C:\\cwagent-config.json -Encoding UTF8\n    & 'C:\\Program Files\\Amazon\\AmazonCloudWatchAgent\\amazon-cloudwatch-agent-ctl.ps1' -a fetch-config -m ec2 -s -c file:C:\\cwagent-config.json\n}\n\n# --- Auto-shutdown safety net ---\nif (\"",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        "\" -ne \"0\") {\n    $ShutdownTime = (Get-Date).AddHours(",
+        {
+         "Ref": "AutoShutdownHours"
+        },
+        ")\n    schtasks /create /tn AutoShutdown /sc once /sd $ShutdownTime.ToString('MM/dd/yyyy') /st $ShutdownTime.ToString('HH:mm') /tr \"shutdown /s /t 0\" /ru SYSTEM /f 2>$null | Out-Null\n}\n# --- NVIDIA driver (Tesla/datacenter, from AWS's public unauthenticated bucket) ---\n$MasterIp = \"",
+        {
+         "Fn::GetAtt": [
+          "SparkMasterWindows0F55B191",
+          "PrivateIp"
+         ]
+        },
+        "\"\n\nif (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {\n    $listing = aws s3 ls s3://ec2-windows-nvidia-drivers/latest/ --no-sign-request\n    $installerName = ($listing -split \"`r?`n\" | Where-Object { $_ -match 'server2022|server2019' } |\n        Select-Object -First 1) -replace '^.*\\s(\\S+\\.exe)\\s*$', '$1'\n    if ($installerName) {\n        aws s3 cp \"s3://ec2-windows-nvidia-drivers/latest/$installerName\" C:\\nvidia-driver.exe --no-sign-request\n        Start-Process -FilePath C:\\nvidia-driver.exe -ArgumentList '-s -clean -noreboot' -Wait\n    }\n    # Reboot to load the driver; the AtStartup SparkBootstrap task re-runs this\n    # same script afterwards, finds nvidia-smi present, and continues below.\n    Restart-Computer -Force\n    exit\n}\n\n# --- Start Spark GPU worker (idempotent) ---\n$WorkerRunning = Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" -ErrorAction SilentlyContinue |\n    Where-Object { $_.CommandLine -match 'deploy\\.worker\\.Worker' }\nif (-not $WorkerRunning) {\n    Start-Process -FilePath \"$SparkHome\\bin\\spark-class2.cmd\" `\n        -ArgumentList 'org.apache.spark.deploy.worker.Worker',\"spark://${MasterIp}:7077\",'-c','4','-m','12g' `\n        -WindowStyle Hidden `\n        -RedirectStandardOutput C:\\spark\\logs\\worker.log -RedirectStandardError C:\\spark\\logs\\worker.err.log\n}\n'@ | Set-Content -Path 'C:\\spark\\bootstrap.ps1' -Encoding UTF8\nschtasks /create /tn SparkBootstrap /sc onstart /ru SYSTEM /rl HIGHEST /tr \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\spark\\bootstrap.ps1\" /f\nschtasks /run /tn SparkBootstrap</powershell>"
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "WindowsSparkNodeRoleDefaultPolicy45C7809A",
+    "WindowsSparkNodeRoleBD13576A",
+    "WindowsSparkVpcpublicSubnet1DefaultRouteCD2FF0E3",
+    "WindowsSparkVpcpublicSubnet1RouteTableAssociation64AFFDFF",
+    "WindowsSparkVpcpublicSubnet2DefaultRoute5A24B35F",
+    "WindowsSparkVpcpublicSubnet2RouteTableAssociationF8407D6F",
+    "WindowsSparkVpcpublicSubnet3DefaultRoute4BEED37D",
+    "WindowsSparkVpcpublicSubnet3RouteTableAssociation3EA5F9D7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/SparkGpuWorkerWindows/Resource"
+   }
+  },
+  "WindowsSparkClusterDashboard50D225FC": {
+   "Type": "AWS::CloudWatch::Dashboard",
+   "Properties": {
+    "DashboardBody": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"widgets\":[{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":0,\"properties\":{\"markdown\":\"# Windows Spark Inference Cluster - Master / GPU Worker / Benchmark\"}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host CPU %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"cpu_usage_active\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host Memory %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"mem_used_percent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Host Disk %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"CWAgent\",\"disk_used_percent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Active Workers\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ActiveWorkers\",{\"period\":60,\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Executor Active Tasks\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ExecutorActiveTasks\",{\"period\":60,\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":7,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Spark: Executor Completed Tasks\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Spark\",\"ExecutorCompletedTasks\",{\"period\":60,\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Utilization %\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuUtilizationPercent\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Memory Used (MB)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuMemoryUsedMb\",{\"period\":60}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":13,\"properties\":{\"view\":\"timeSeries\",\"title\":\"GPU Temperature (C)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/GPU\",\"GpuTemperatureC\",{\"period\":60,\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":19,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Benchmark Throughput (samples/sec)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Benchmark\",\"ThroughputSamplesPerSec\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":12,\"y\":19,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Benchmark Elapsed Time (sec)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"SparkInference/Benchmark\",\"ElapsedTimeSec\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}}]}"
+      ]
+     ]
+    },
+    "DashboardName": "SparkInferenceCluster-Windows"
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/WindowsSparkClusterDashboard/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31QyU7DMBD9lt5d0wXBuYtU9YSVoF7RxJk2poldecZEUZR/R6lDDRdO8zbrzXgll68LuZhBS3NdXue1KWSfM+ir2J2tAg8NMnoBLX30qFeyP930aJ3UTqhQ1EbnobDIo5ZQ5gLjOxQ1Jj1pGyKnDbBx9hEewdEyeot8AMYWuqlmYhtm0FWDlkWOOnjD3cG7cLsX/Csc7cUjkThaYrB6qop4ELSW/Tboa1x8QnEoVxvdJTnyQRhoZJ+5eNx9pmRCPxXKu7OpcRC6dqFsgXUl+z1QVTjw5Zh8kGEQGZILPi65c7Y08ZcCsWt+ewn/sZR3X6ZEvwVCsSFCzhkuxl7GN2+Bb4EHoTqunH1ay+WzfJl9kjFzHyybBmUW5zdDtIavFwIAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindowsSparkClusterStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Conditions": {
+  "HasAdminCidr8080": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AdminCidr"
+      },
+      ""
+     ]
+    }
+   ]
+  },
+  "HasAdminCidr4040": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AdminCidr"
+      },
+      ""
+     ]
+    }
+   ]
+  },
+  "HasAdminCidrRdp": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AdminCidr"
+      },
+      ""
+     ]
+    }
+   ]
+  },
+  "HasKeyPairMaster": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "KeyPairName"
+      },
+      ""
+     ]
+    }
+   ]
+  },
+  "HasKeyPairWorker": {
+   "Fn::Not": [
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "KeyPairName"
+      },
+      ""
+     ]
+    }
+   ]
+  }
+ },
+ "Outputs": {
+  "MasterInstanceId": {
+   "Value": {
+    "Ref": "SparkMasterWindows0F55B191"
+   }
+  },
+  "MasterPublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkMasterWindows0F55B191",
+     "PublicIp"
+    ]
+   }
+  },
+  "MasterPrivateIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkMasterWindows0F55B191",
+     "PrivateIp"
+    ]
+   }
+  },
+  "GpuWorkerInstanceId": {
+   "Value": {
+    "Ref": "SparkGpuWorkerWindows87D6FB4D"
+   }
+  },
+  "GpuWorkerPublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkGpuWorkerWindows87D6FB4D",
+     "PublicIp"
+    ]
+   }
+  },
+  "GpuWorkerPrivateIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SparkGpuWorkerWindows87D6FB4D",
+     "PrivateIp"
+    ]
+   }
+  },
+  "MasterUiUrl": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "http://",
+      {
+       "Fn::GetAtt": [
+        "SparkMasterWindows0F55B191",
+        "PublicIp"
+       ]
+      },
+      ":8080"
+     ]
+    ]
+   }
+  },
+  "ArtifactsBucketName": {
+   "Value": {
+    "Ref": "ArtifactsBucket2AAC5544"
+   }
+  },
+  "DashboardUrl": {
+   "Value": "https://ap-south-1.console.aws.amazon.com/cloudwatch/home?region=ap-south-1#dashboards:name=SparkInferenceCluster-Windows"
+  },
+  "SubmitJobExample": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "python submit_job.py --model example_mlp --mode hybrid --master spark://",
+      {
+       "Fn::GetAtt": [
+        "SparkMasterWindows0F55B191",
+        "PrivateIp"
+       ]
+      },
+      ":7077"
+     ]
+    ]
+   }
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

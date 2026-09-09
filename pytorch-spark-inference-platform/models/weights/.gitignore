@@ -1,0 +1,5 @@
+# Model weight files are never committed to git - see README.md in this
+# directory. Only this .gitignore and README.md itself are tracked.
+*
+!.gitignore
+!README.md

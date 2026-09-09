@@ -1,0 +1,34 @@
+{
+  "version": "38.0.1",
+  "files": {
+    "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6": {
+      "source": {
+        "path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "368287210840-ap-south-1": {
+          "bucketName": "cdk-hnb659fds-assets-368287210840-ap-south-1",
+          "objectKey": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-file-publishing-role-368287210840-ap-south-1"
+        }
+      }
+    },
+    "ecc43306bfb9145270857593a03c481de1685bfe87eff2c7a8f2ae07a1148407": {
+      "source": {
+        "path": "WindowsSparkClusterStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "368287210840-ap-south-1": {
+          "bucketName": "cdk-hnb659fds-assets-368287210840-ap-south-1",
+          "objectKey": "ecc43306bfb9145270857593a03c481de1685bfe87eff2c7a8f2ae07a1148407.json",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::368287210840:role/cdk-hnb659fds-file-publishing-role-368287210840-ap-south-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

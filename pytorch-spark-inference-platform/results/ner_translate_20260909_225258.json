@@ -1,0 +1,1604 @@
+{
+  "elapsed_time": 331.9499,
+  "num_files": 5,
+  "num_partitions": 1,
+  "partition_details": [
+    {
+      "hostname": "LAPTOP-OU17PKM2",
+      "pid": 8760,
+      "num_paths": 5,
+      "load_time_sec": 22.427,
+      "run_time_sec": 285.709
+    }
+  ],
+  "results": {
+    "sample_text1.txt": {
+      "path": "data/ner_samples\\sample_text1.txt",
+      "language": "en",
+      "translated": false,
+      "text_used": "On date 15 June 2026 at time 14:30 UTC, person Colonel James Carter, holding the rank of Colonel and of nationality American, reported to organization Joint Task Force Sentinel. The military unit 3rd Armored Brigade was deployed as part of operation name Operation Iron Shield.\n\nThe unit moved from location Fort Eagle Base toward Sector Delta at coordinates 34.0522°N, 118.2437°W. During the mission, a vehicle M2 Bradley Infantry Fighting Vehicle escorted a weapon system HIMARS launcher carrying precision-guided munitions.\n\nAir support was provided by the aircraft F-35 Lightning II operating under communication identifier EAGLE-21. Maritime surveillance was conducted by the vessel USS Arlington positioned offshore. Ground troops utilized equipment AN/PRC-158 tactical radios and advanced night-vision systems.\n\nThe convoy arrived at facility Forward Operating Base Falcon, where commanders monitored an event involving unauthorized drone activity near the perimeter. Intelligence updates were transmitted through communication identifier ALPHA-NET-07 and coordinated with allied forces.\n\nFollowing successful reconnaissance and threat assessment, the military unit secured the objective area without casualties. The organization Joint Task Force Sentinel declared operation name Operation Iron Shield a success and scheduled a follow-up event for 18 June 2026 at 09:00 UTC.",
+      "original_text": "On date 15 June 2026 at time 14:30 UTC, person Colonel James Carter, holding the rank of Colonel and of nationality American, reported to organization Joint Task Force Sentinel. The military unit 3rd Armored Brigade was deployed as part of operation name Operation Iron Shield.\n\nThe unit moved from location Fort Eagle Base toward Sector Delta at coordinates 34.0522°N, 118.2437°W. During the mission, a vehicle M2 Bradley Infantry Fighting Vehicle escorted a weapon system HIMARS launcher carrying precision-guided munitions.\n\nAir support was provided by the aircraft F-35 Lightning II operating under communication identifier EAGLE-21. Maritime surveillance was conducted by the vessel USS Arlington positioned offshore. Ground troops utilized equipment AN/PRC-158 tactical radios and advanced night-vision systems.\n\nThe convoy arrived at facility Forward Operating Base Falcon, where commanders monitored an event involving unauthorized drone activity near the perimeter. Intelligence updates were transmitted through communication identifier ALPHA-NET-07 and coordinated with allied forces.\n\nFollowing successful reconnaissance and threat assessment, the military unit secured the objective area without casualties. The organization Joint Task Force Sentinel declared operation name Operation Iron Shield a success and scheduled a follow-up event for 18 June 2026 at 09:00 UTC.",
+      "entities_all": [
+        {
+          "text": "15 June 2026",
+          "type": "date",
+          "score": 0.8825,
+          "start": 8,
+          "end": 20
+        },
+        {
+          "text": "14:30 UTC",
+          "type": "time",
+          "score": 0.4252,
+          "start": 29,
+          "end": 38
+        },
+        {
+          "text": "Colonel James Carter",
+          "type": "person",
+          "score": 0.9558,
+          "start": 47,
+          "end": 67
+        },
+        {
+          "text": "Colonel",
+          "type": "rank",
+          "score": 0.7618,
+          "start": 89,
+          "end": 96
+        },
+        {
+          "text": "American",
+          "type": "rank",
+          "score": 0.7635,
+          "start": 116,
+          "end": 124
+        },
+        {
+          "text": "Joint Task Force Sentinel",
+          "type": "organization",
+          "score": 0.4206,
+          "start": 151,
+          "end": 176
+        },
+        {
+          "text": "3rd Armored Brigade",
+          "type": "military unit",
+          "score": 0.9182,
+          "start": 196,
+          "end": 215
+        },
+        {
+          "text": "Operation Iron Shield",
+          "type": "operation name",
+          "score": 0.8852,
+          "start": 255,
+          "end": 276
+        },
+        {
+          "text": "Fort Eagle Base",
+          "type": "facility",
+          "score": 0.5833,
+          "start": 307,
+          "end": 322
+        },
+        {
+          "text": "Sector Delta",
+          "type": "facility",
+          "score": 0.4347,
+          "start": 330,
+          "end": 342
+        },
+        {
+          "text": "34.0522°N",
+          "type": "coordinates",
+          "score": 0.7897,
+          "start": 358,
+          "end": 367
+        },
+        {
+          "text": "118.2437°W",
+          "type": "coordinates",
+          "score": 0.7849,
+          "start": 369,
+          "end": 379
+        },
+        {
+          "text": "M2 Bradley Infantry Fighting Vehicle",
+          "type": "vehicle",
+          "score": 0.5618,
+          "start": 411,
+          "end": 447
+        },
+        {
+          "text": "HIMARS launcher",
+          "type": "weapon system",
+          "score": 0.8441,
+          "start": 473,
+          "end": 488
+        },
+        {
+          "text": "precision-guided munitions",
+          "type": "weapon system",
+          "score": 0.4313,
+          "start": 498,
+          "end": 524
+        },
+        {
+          "text": "F-35 Lightning II",
+          "type": "communication identifier",
+          "score": 0.4698,
+          "start": 567,
+          "end": 584
+        },
+        {
+          "text": "EAGLE-21",
+          "type": "communication identifier",
+          "score": 0.715,
+          "start": 626,
+          "end": 634
+        },
+        {
+          "text": "USS Arlington",
+          "type": "vessel",
+          "score": 0.8999,
+          "start": 686,
+          "end": 699
+        },
+        {
+          "text": "AN/PRC-158 tactical radios",
+          "type": "weapon system",
+          "score": 0.6007,
+          "start": 754,
+          "end": 780
+        },
+        {
+          "text": "advanced night-vision systems",
+          "type": "weapon system",
+          "score": 0.5355,
+          "start": 785,
+          "end": 814
+        },
+        {
+          "text": "Forward Operating Base Falcon",
+          "type": "facility",
+          "score": 0.7803,
+          "start": 847,
+          "end": 876
+        },
+        {
+          "text": "unauthorized drone activity",
+          "type": "event",
+          "score": 0.4055,
+          "start": 924,
+          "end": 951
+        },
+        {
+          "text": "ALPHA-NET-07",
+          "type": "communication identifier",
+          "score": 0.7504,
+          "start": 1043,
+          "end": 1055
+        },
+        {
+          "text": "Joint Task Force Sentinel",
+          "type": "military unit",
+          "score": 0.4605,
+          "start": 1233,
+          "end": 1258
+        },
+        {
+          "text": "Operation Iron Shield",
+          "type": "operation name",
+          "score": 0.8494,
+          "start": 1283,
+          "end": 1304
+        },
+        {
+          "text": "follow-up event",
+          "type": "event",
+          "score": 0.3688,
+          "start": 1331,
+          "end": 1346
+        },
+        {
+          "text": "18 June 2026",
+          "type": "date",
+          "score": 0.8627,
+          "start": 1351,
+          "end": 1363
+        },
+        {
+          "text": "09:00 UTC",
+          "type": "time",
+          "score": 0.4466,
+          "start": 1367,
+          "end": 1376
+        },
+        {
+          "text": "118.2437",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 369,
+          "end": 377
+        }
+      ],
+      "entities_unique": [
+        {
+          "text": "15 June 2026",
+          "type": "date",
+          "score": 0.8825,
+          "start": 8,
+          "end": 20
+        },
+        {
+          "text": "14:30 UTC",
+          "type": "time",
+          "score": 0.4252,
+          "start": 29,
+          "end": 38
+        },
+        {
+          "text": "Colonel James Carter",
+          "type": "person",
+          "score": 0.9558,
+          "start": 47,
+          "end": 67
+        },
+        {
+          "text": "Colonel",
+          "type": "rank",
+          "score": 0.7618,
+          "start": 89,
+          "end": 96
+        },
+        {
+          "text": "American",
+          "type": "rank",
+          "score": 0.7635,
+          "start": 116,
+          "end": 124
+        },
+        {
+          "text": "Joint Task Force Sentinel",
+          "type": "organization",
+          "score": 0.4206,
+          "start": 151,
+          "end": 176
+        },
+        {
+          "text": "3rd Armored Brigade",
+          "type": "military unit",
+          "score": 0.9182,
+          "start": 196,
+          "end": 215
+        },
+        {
+          "text": "Operation Iron Shield",
+          "type": "operation name",
+          "score": 0.8852,
+          "start": 255,
+          "end": 276
+        },
+        {
+          "text": "Fort Eagle Base",
+          "type": "facility",
+          "score": 0.5833,
+          "start": 307,
+          "end": 322
+        },
+        {
+          "text": "Sector Delta",
+          "type": "facility",
+          "score": 0.4347,
+          "start": 330,
+          "end": 342
+        },
+        {
+          "text": "34.0522°N",
+          "type": "coordinates",
+          "score": 0.7897,
+          "start": 358,
+          "end": 367
+        },
+        {
+          "text": "118.2437°W",
+          "type": "coordinates",
+          "score": 0.7849,
+          "start": 369,
+          "end": 379
+        },
+        {
+          "text": "M2 Bradley Infantry Fighting Vehicle",
+          "type": "vehicle",
+          "score": 0.5618,
+          "start": 411,
+          "end": 447
+        },
+        {
+          "text": "HIMARS launcher",
+          "type": "weapon system",
+          "score": 0.8441,
+          "start": 473,
+          "end": 488
+        },
+        {
+          "text": "precision-guided munitions",
+          "type": "weapon system",
+          "score": 0.4313,
+          "start": 498,
+          "end": 524
+        },
+        {
+          "text": "F-35 Lightning II",
+          "type": "communication identifier",
+          "score": 0.4698,
+          "start": 567,
+          "end": 584
+        },
+        {
+          "text": "EAGLE-21",
+          "type": "communication identifier",
+          "score": 0.715,
+          "start": 626,
+          "end": 634
+        },
+        {
+          "text": "USS Arlington",
+          "type": "vessel",
+          "score": 0.8999,
+          "start": 686,
+          "end": 699
+        },
+        {
+          "text": "AN/PRC-158 tactical radios",
+          "type": "weapon system",
+          "score": 0.6007,
+          "start": 754,
+          "end": 780
+        },
+        {
+          "text": "advanced night-vision systems",
+          "type": "weapon system",
+          "score": 0.5355,
+          "start": 785,
+          "end": 814
+        },
+        {
+          "text": "Forward Operating Base Falcon",
+          "type": "facility",
+          "score": 0.7803,
+          "start": 847,
+          "end": 876
+        },
+        {
+          "text": "unauthorized drone activity",
+          "type": "event",
+          "score": 0.4055,
+          "start": 924,
+          "end": 951
+        },
+        {
+          "text": "ALPHA-NET-07",
+          "type": "communication identifier",
+          "score": 0.7504,
+          "start": 1043,
+          "end": 1055
+        },
+        {
+          "text": "Joint Task Force Sentinel",
+          "type": "military unit",
+          "score": 0.4605,
+          "start": 1233,
+          "end": 1258
+        },
+        {
+          "text": "follow-up event",
+          "type": "event",
+          "score": 0.3688,
+          "start": 1331,
+          "end": 1346
+        },
+        {
+          "text": "18 June 2026",
+          "type": "date",
+          "score": 0.8627,
+          "start": 1351,
+          "end": 1363
+        },
+        {
+          "text": "09:00 UTC",
+          "type": "time",
+          "score": 0.4466,
+          "start": 1367,
+          "end": 1376
+        },
+        {
+          "text": "118.2437",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 369,
+          "end": 377
+        }
+      ]
+    },
+    "sample_text2.txt": {
+      "path": "data/ner_samples\\sample_text2.txt",
+      "language": "en",
+      "translated": false,
+      "text_used": "On 15 June 2026 at 23:47 UTC, Colonel Sarah Mitchell, a British officer assigned to the NATO Rapid Response Command, directed elements of the 2nd Mechanized Battalion during Operation Silent Horizon after intelligence reports indicated suspicious activity near Forward Operating Base Sentinel located in the Al-Qamar region at coordinates 31.7683°N, 35.2137°E. The battalion, supported by two M142 HIMARS weapon systems mounted on Oshkosh FMTV vehicles and escorted by AH-64 Apache aircraft operating under communication identifiers FALCON-11 and FALCON-12, was tasked with securing a logistics facility known as Depot Echo. Simultaneously, the USS Arlington, a San Antonio-class vessel positioned 45 nautical miles offshore, relayed surveillance data collected from AN/PRC-158 tactical radios and MQ-9 Reaper reconnaissance assets to the Joint Intelligence Directorate. During the operation, Major Ahmed Al-Rashid of the Royal Jordanian Armed Forces reported that an unidentified convoy had departed from Camp Al-Hadeed at 21:15 local time and was moving toward Checkpoint Delta-7. The resulting event triggered an emergency coordination meeting between NATO Rapid Response Command, the Joint Intelligence Directorate, and the 5th Armored Brigade, leading to the deployment of additional Leopard 2A7 vehicles and counter-drone equipment. By 02:10 UTC on 16 June 2026, all objectives of Operation Silent Horizon had been completed, and communication identifier SIERRA-NET-09 confirmed mission success.",
+      "original_text": "On 15 June 2026 at 23:47 UTC, Colonel Sarah Mitchell, a British officer assigned to the NATO Rapid Response Command, directed elements of the 2nd Mechanized Battalion during Operation Silent Horizon after intelligence reports indicated suspicious activity near Forward Operating Base Sentinel located in the Al-Qamar region at coordinates 31.7683°N, 35.2137°E. The battalion, supported by two M142 HIMARS weapon systems mounted on Oshkosh FMTV vehicles and escorted by AH-64 Apache aircraft operating under communication identifiers FALCON-11 and FALCON-12, was tasked with securing a logistics facility known as Depot Echo. Simultaneously, the USS Arlington, a San Antonio-class vessel positioned 45 nautical miles offshore, relayed surveillance data collected from AN/PRC-158 tactical radios and MQ-9 Reaper reconnaissance assets to the Joint Intelligence Directorate. During the operation, Major Ahmed Al-Rashid of the Royal Jordanian Armed Forces reported that an unidentified convoy had departed from Camp Al-Hadeed at 21:15 local time and was moving toward Checkpoint Delta-7. The resulting event triggered an emergency coordination meeting between NATO Rapid Response Command, the Joint Intelligence Directorate, and the 5th Armored Brigade, leading to the deployment of additional Leopard 2A7 vehicles and counter-drone equipment. By 02:10 UTC on 16 June 2026, all objectives of Operation Silent Horizon had been completed, and communication identifier SIERRA-NET-09 confirmed mission success.",
+      "entities_all": [
+        {
+          "text": "15 June 2026",
+          "type": "date",
+          "score": 0.8199,
+          "start": 3,
+          "end": 15
+        },
+        {
+          "text": "23:47 UTC",
+          "type": "time",
+          "score": 0.457,
+          "start": 19,
+          "end": 28
+        },
+        {
+          "text": "Colonel Sarah Mitchell",
+          "type": "person",
+          "score": 0.8166,
+          "start": 30,
+          "end": 52
+        },
+        {
+          "text": "British",
+          "type": "nationality",
+          "score": 0.5597,
+          "start": 56,
+          "end": 63
+        },
+        {
+          "text": "NATO Rapid Response Command",
+          "type": "organization",
+          "score": 0.5221,
+          "start": 88,
+          "end": 115
+        },
+        {
+          "text": "2nd Mechanized Battalion",
+          "type": "military unit",
+          "score": 0.9348,
+          "start": 142,
+          "end": 166
+        },
+        {
+          "text": "Operation Silent Horizon",
+          "type": "operation name",
+          "score": 0.5982,
+          "start": 174,
+          "end": 198
+        },
+        {
+          "text": "Forward Operating Base Sentinel",
+          "type": "facility",
+          "score": 0.5317,
+          "start": 261,
+          "end": 292
+        },
+        {
+          "text": "Al-Qamar region",
+          "type": "coordinates",
+          "score": 0.3672,
+          "start": 308,
+          "end": 323
+        },
+        {
+          "text": "31.7683°N",
+          "type": "coordinates",
+          "score": 0.7837,
+          "start": 339,
+          "end": 348
+        },
+        {
+          "text": "35.2137°E",
+          "type": "coordinates",
+          "score": 0.5648,
+          "start": 350,
+          "end": 359
+        },
+        {
+          "text": "M142 HIMARS",
+          "type": "weapon system",
+          "score": 0.511,
+          "start": 393,
+          "end": 404
+        },
+        {
+          "text": "Oshkosh FMTV vehicles",
+          "type": "vehicle",
+          "score": 0.6316,
+          "start": 431,
+          "end": 452
+        },
+        {
+          "text": "AH-64 Apache aircraft",
+          "type": "weapon system",
+          "score": 0.4144,
+          "start": 469,
+          "end": 490
+        },
+        {
+          "text": "FALCON-11",
+          "type": "communication identifier",
+          "score": 0.6842,
+          "start": 533,
+          "end": 542
+        },
+        {
+          "text": "FALCON-12",
+          "type": "communication identifier",
+          "score": 0.6494,
+          "start": 547,
+          "end": 556
+        },
+        {
+          "text": "logistics facility",
+          "type": "facility",
+          "score": 0.3654,
+          "start": 585,
+          "end": 603
+        },
+        {
+          "text": "Depot Echo",
+          "type": "facility",
+          "score": 0.6342,
+          "start": 613,
+          "end": 623
+        },
+        {
+          "text": "USS Arlington",
+          "type": "vessel",
+          "score": 0.9482,
+          "start": 645,
+          "end": 658
+        },
+        {
+          "text": "San Antonio-class vessel",
+          "type": "vessel",
+          "score": 0.5755,
+          "start": 662,
+          "end": 686
+        },
+        {
+          "text": "AN/PRC-158 tactical radios",
+          "type": "weapon system",
+          "score": 0.4643,
+          "start": 767,
+          "end": 793
+        },
+        {
+          "text": "MQ-9 Reaper reconnaissance assets",
+          "type": "weapon system",
+          "score": 0.3709,
+          "start": 798,
+          "end": 831
+        },
+        {
+          "text": "Joint Intelligence Directorate",
+          "type": "military unit",
+          "score": 0.4246,
+          "start": 839,
+          "end": 869
+        },
+        {
+          "text": "Major Ahmed Al-Rashid",
+          "type": "person",
+          "score": 0.7836,
+          "start": 893,
+          "end": 914
+        },
+        {
+          "text": "Royal Jordanian Armed Forces",
+          "type": "organization",
+          "score": 0.5204,
+          "start": 922,
+          "end": 950
+        },
+        {
+          "text": "Camp Al-Hadeed",
+          "type": "facility",
+          "score": 0.537,
+          "start": 1006,
+          "end": 1020
+        },
+        {
+          "text": "21:15 local time",
+          "type": "time",
+          "score": 0.4757,
+          "start": 1024,
+          "end": 1040
+        },
+        {
+          "text": "Checkpoint Delta-7",
+          "type": "communication identifier",
+          "score": 0.5137,
+          "start": 1063,
+          "end": 1081
+        },
+        {
+          "text": "NATO Rapid Response Command",
+          "type": "organization",
+          "score": 0.5444,
+          "start": 1155,
+          "end": 1182
+        },
+        {
+          "text": "Joint Intelligence Directorate",
+          "type": "organization",
+          "score": 0.4393,
+          "start": 1188,
+          "end": 1218
+        },
+        {
+          "text": "5th Armored Brigade",
+          "type": "military unit",
+          "score": 0.8621,
+          "start": 1228,
+          "end": 1247
+        },
+        {
+          "text": "counter-drone equipment",
+          "type": "weapon system",
+          "score": 0.4311,
+          "start": 1314,
+          "end": 1337
+        },
+        {
+          "text": "16 June 2026",
+          "type": "date",
+          "score": 0.8408,
+          "start": 1355,
+          "end": 1367
+        },
+        {
+          "text": "Operation Silent Horizon",
+          "type": "operation name",
+          "score": 0.6901,
+          "start": 1387,
+          "end": 1411
+        },
+        {
+          "text": "SIERRA-NET-09",
+          "type": "communication identifier",
+          "score": 0.7433,
+          "start": 1461,
+          "end": 1474
+        }
+      ],
+      "entities_unique": [
+        {
+          "text": "15 June 2026",
+          "type": "date",
+          "score": 0.8199,
+          "start": 3,
+          "end": 15
+        },
+        {
+          "text": "23:47 UTC",
+          "type": "time",
+          "score": 0.457,
+          "start": 19,
+          "end": 28
+        },
+        {
+          "text": "Colonel Sarah Mitchell",
+          "type": "person",
+          "score": 0.8166,
+          "start": 30,
+          "end": 52
+        },
+        {
+          "text": "British",
+          "type": "nationality",
+          "score": 0.5597,
+          "start": 56,
+          "end": 63
+        },
+        {
+          "text": "NATO Rapid Response Command",
+          "type": "organization",
+          "score": 0.5444,
+          "start": 1155,
+          "end": 1182
+        },
+        {
+          "text": "2nd Mechanized Battalion",
+          "type": "military unit",
+          "score": 0.9348,
+          "start": 142,
+          "end": 166
+        },
+        {
+          "text": "Operation Silent Horizon",
+          "type": "operation name",
+          "score": 0.6901,
+          "start": 1387,
+          "end": 1411
+        },
+        {
+          "text": "Forward Operating Base Sentinel",
+          "type": "facility",
+          "score": 0.5317,
+          "start": 261,
+          "end": 292
+        },
+        {
+          "text": "Al-Qamar region",
+          "type": "coordinates",
+          "score": 0.3672,
+          "start": 308,
+          "end": 323
+        },
+        {
+          "text": "31.7683°N",
+          "type": "coordinates",
+          "score": 0.7837,
+          "start": 339,
+          "end": 348
+        },
+        {
+          "text": "35.2137°E",
+          "type": "coordinates",
+          "score": 0.5648,
+          "start": 350,
+          "end": 359
+        },
+        {
+          "text": "M142 HIMARS",
+          "type": "weapon system",
+          "score": 0.511,
+          "start": 393,
+          "end": 404
+        },
+        {
+          "text": "Oshkosh FMTV vehicles",
+          "type": "vehicle",
+          "score": 0.6316,
+          "start": 431,
+          "end": 452
+        },
+        {
+          "text": "AH-64 Apache aircraft",
+          "type": "weapon system",
+          "score": 0.4144,
+          "start": 469,
+          "end": 490
+        },
+        {
+          "text": "FALCON-11",
+          "type": "communication identifier",
+          "score": 0.6842,
+          "start": 533,
+          "end": 542
+        },
+        {
+          "text": "FALCON-12",
+          "type": "communication identifier",
+          "score": 0.6494,
+          "start": 547,
+          "end": 556
+        },
+        {
+          "text": "logistics facility",
+          "type": "facility",
+          "score": 0.3654,
+          "start": 585,
+          "end": 603
+        },
+        {
+          "text": "Depot Echo",
+          "type": "facility",
+          "score": 0.6342,
+          "start": 613,
+          "end": 623
+        },
+        {
+          "text": "USS Arlington",
+          "type": "vessel",
+          "score": 0.9482,
+          "start": 645,
+          "end": 658
+        },
+        {
+          "text": "San Antonio-class vessel",
+          "type": "vessel",
+          "score": 0.5755,
+          "start": 662,
+          "end": 686
+        },
+        {
+          "text": "AN/PRC-158 tactical radios",
+          "type": "weapon system",
+          "score": 0.4643,
+          "start": 767,
+          "end": 793
+        },
+        {
+          "text": "MQ-9 Reaper reconnaissance assets",
+          "type": "weapon system",
+          "score": 0.3709,
+          "start": 798,
+          "end": 831
+        },
+        {
+          "text": "Joint Intelligence Directorate",
+          "type": "military unit",
+          "score": 0.4246,
+          "start": 839,
+          "end": 869
+        },
+        {
+          "text": "Major Ahmed Al-Rashid",
+          "type": "person",
+          "score": 0.7836,
+          "start": 893,
+          "end": 914
+        },
+        {
+          "text": "Royal Jordanian Armed Forces",
+          "type": "organization",
+          "score": 0.5204,
+          "start": 922,
+          "end": 950
+        },
+        {
+          "text": "Camp Al-Hadeed",
+          "type": "facility",
+          "score": 0.537,
+          "start": 1006,
+          "end": 1020
+        },
+        {
+          "text": "21:15 local time",
+          "type": "time",
+          "score": 0.4757,
+          "start": 1024,
+          "end": 1040
+        },
+        {
+          "text": "Checkpoint Delta-7",
+          "type": "communication identifier",
+          "score": 0.5137,
+          "start": 1063,
+          "end": 1081
+        },
+        {
+          "text": "Joint Intelligence Directorate",
+          "type": "organization",
+          "score": 0.4393,
+          "start": 1188,
+          "end": 1218
+        },
+        {
+          "text": "5th Armored Brigade",
+          "type": "military unit",
+          "score": 0.8621,
+          "start": 1228,
+          "end": 1247
+        },
+        {
+          "text": "counter-drone equipment",
+          "type": "weapon system",
+          "score": 0.4311,
+          "start": 1314,
+          "end": 1337
+        },
+        {
+          "text": "16 June 2026",
+          "type": "date",
+          "score": 0.8408,
+          "start": 1355,
+          "end": 1367
+        },
+        {
+          "text": "SIERRA-NET-09",
+          "type": "communication identifier",
+          "score": 0.7433,
+          "start": 1461,
+          "end": 1474
+        }
+      ]
+    },
+    "sample_text3.txt": {
+      "path": "data/ner_samples\\sample_text3.txt",
+      "language": "en",
+      "translated": false,
+      "text_used": "I am Vinit from Nagpur, Maharashtra, and working in RAPL as a Software Engineer and my mobile Number is 1234567890",
+      "original_text": "I am Vinit from Nagpur, Maharashtra, and working in RAPL as a Software Engineer and my mobile Number is 1234567890",
+      "entities_all": [
+        {
+          "text": "Vinit",
+          "type": "person",
+          "score": 0.9752,
+          "start": 5,
+          "end": 10
+        },
+        {
+          "text": "Nagpur",
+          "type": "location",
+          "score": 0.9669,
+          "start": 16,
+          "end": 22
+        },
+        {
+          "text": "Maharashtra",
+          "type": "location",
+          "score": 0.9647,
+          "start": 24,
+          "end": 35
+        },
+        {
+          "text": "RAPL",
+          "type": "organization",
+          "score": 0.9322,
+          "start": 52,
+          "end": 56
+        },
+        {
+          "text": "Software Engineer",
+          "type": "person",
+          "score": 0.4952,
+          "start": 62,
+          "end": 79
+        },
+        {
+          "text": "1234567890",
+          "type": "phone number",
+          "score": 0.4584,
+          "start": 104,
+          "end": 114
+        },
+        {
+          "text": "1234567890",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 104,
+          "end": 114
+        }
+      ],
+      "entities_unique": [
+        {
+          "text": "Vinit",
+          "type": "person",
+          "score": 0.9752,
+          "start": 5,
+          "end": 10
+        },
+        {
+          "text": "Nagpur",
+          "type": "location",
+          "score": 0.9669,
+          "start": 16,
+          "end": 22
+        },
+        {
+          "text": "Maharashtra",
+          "type": "location",
+          "score": 0.9647,
+          "start": 24,
+          "end": 35
+        },
+        {
+          "text": "RAPL",
+          "type": "organization",
+          "score": 0.9322,
+          "start": 52,
+          "end": 56
+        },
+        {
+          "text": "Software Engineer",
+          "type": "person",
+          "score": 0.4952,
+          "start": 62,
+          "end": 79
+        },
+        {
+          "text": "1234567890",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 104,
+          "end": 114
+        }
+      ]
+    },
+    "sample_text4.txt": {
+      "path": "data/ner_samples\\sample_text4.txt",
+      "language": "hi",
+      "translated": true,
+      "text_used": "On 16 June 2026 at 22:45 UTC time, the person Colonel Arjun Singh, who is an Indian nationality officer and affiliated with the organization Joint Defense Intelligence Directorate (JDI) issued instructions to the military unit 17th Mechanized Infantry Battalion under the operation name \"Operation Security Armor\". According to intelligence reports, the location in the eastern sector of Ladakh facility \"Forward Operating Base Hymgiri\" near the coordinates 34.1526°N, 77.5771°E. During the operation, the military unit saw suspicious activity during the use of the Shera Tataka Vickeld Armored Platform and BMP-2 Infantry Fighting Wheels with weapons system after the multi-battery Joint Rocket was deployed to the Pinnavan.",
+      "original_text": "ह16 जून 2026 को समय 22:45 UTC पर, व्यक्ति कर्नल अर्जुन सिंह, जो भारतीय राष्ट्रीयता के अधिकारी हैं और संगठन संयुक्त रक्षा खुफिया निदेशालय से संबद्ध हैं, ने सैन्य इकाई 17वीं मैकेनाइज्ड इन्फैंट्री बटालियन को ऑपरेशन नाम \"ऑपरेशन सुरक्षा कवच\" के अंतर्गत निर्देश जारी किए। खुफिया रिपोर्टों के अनुसार स्थान लद्दाख के पूर्वी सेक्टर में स्थित सुविधा \"फॉरवर्ड ऑपरेटिंग बेस हिमगिरि\" के निकट निर्देशांक 34.1526°N, 77.5771°E पर संदिग्ध गतिविधि देखी गई थी। अभियान के दौरान वाहन टाटा व्हील्ड आर्मर्ड प्लेटफॉर्म और BMP-2 इन्फैंट्री फाइटिंग व्हीकल्स के साथ हथियार प्रणाली पिनाका मल्टी बैरल रॉकेट लॉन्चर तैनात किए गए। हवाई निगरानी के लिए विमान सुखोई Su-30MKI तथा ड्रोन इकाइयाँ संचार पहचानकर्ता \"EAGLE-21\" और \"RAVEN-03\" के अंतर्गत संचालित की गईं। इसी बीच जहाज INS जलाश्व समुद्री क्षेत्र से वास्तविक समय की निगरानी जानकारी प्रेषित कर रहा था। उपकरण AN/PRC-158 सामरिक रेडियो, नाइट-विजन डिवाइस और इलेक्ट्रॉनिक सर्विलांस सिस्टम का उपयोग करते हुए बलों ने संदिग्ध काफिले की गतिविधियों को ट्रैक किया। बाद में व्यक्ति मेजर फैसल खान ने सूचना दी कि एक अज्ञात समूह स्थान \"कैंप शेरगढ़\" से रवाना होकर \"चेकपॉइंट डेल्टा-7\" की ओर बढ़ रहा है। इस घटना के बाद संयुक्त कमान केंद्र में आपातकालीन समीक्षा बैठक आयोजित की गई, जिसके परिणामस्वरूप अतिरिक्त सैन्य संसाधनों की तैनाती की गई। 17 जून 2026 को समय 03:20 UTC पर संचार पहचानकर्ता \"SIERRA-NET-09\" के माध्यम से मिशन की सफलता की पुष्टि की गई और ऑपरेशन नाम \"ऑपरेशन सुरक्षा कवच\" को सफलतापूर्वक संपन्न घोषित किया गया।",
+      "entities_all": [
+        {
+          "text": "16 June 2026",
+          "type": "date",
+          "score": 0.8859,
+          "start": 3,
+          "end": 15
+        },
+        {
+          "text": "Colonel Arjun Singh",
+          "type": "person",
+          "score": 0.9454,
+          "start": 46,
+          "end": 65
+        },
+        {
+          "text": "Indian nationality",
+          "type": "nationality",
+          "score": 0.4782,
+          "start": 77,
+          "end": 95
+        },
+        {
+          "text": "Joint Defense Intelligence Directorate",
+          "type": "organization",
+          "score": 0.4393,
+          "start": 141,
+          "end": 179
+        },
+        {
+          "text": "17th Mechanized Infantry Battalion",
+          "type": "military unit",
+          "score": 0.9759,
+          "start": 227,
+          "end": 261
+        },
+        {
+          "text": "Operation Security Armor",
+          "type": "operation name",
+          "score": 0.7223,
+          "start": 288,
+          "end": 312
+        },
+        {
+          "text": "Ladakh",
+          "type": "facility",
+          "score": 0.5146,
+          "start": 388,
+          "end": 394
+        },
+        {
+          "text": "Forward Operating Base Hymgiri",
+          "type": "facility",
+          "score": 0.7604,
+          "start": 405,
+          "end": 435
+        },
+        {
+          "text": "34.1526°N",
+          "type": "coordinates",
+          "score": 0.8855,
+          "start": 458,
+          "end": 467
+        },
+        {
+          "text": "77.5771°E",
+          "type": "coordinates",
+          "score": 0.8194,
+          "start": 469,
+          "end": 478
+        },
+        {
+          "text": "Shera Tataka Vickeld Armored Platform",
+          "type": "weapon system",
+          "score": 0.78,
+          "start": 566,
+          "end": 603
+        },
+        {
+          "text": "BMP-2 Infantry Fighting Wheels",
+          "type": "weapon system",
+          "score": 0.7866,
+          "start": 608,
+          "end": 638
+        },
+        {
+          "text": "multi-battery Joint Rocket",
+          "type": "weapon system",
+          "score": 0.65,
+          "start": 669,
+          "end": 695
+        },
+        {
+          "text": "Pinnavan",
+          "type": "facility",
+          "score": 0.4312,
+          "start": 716,
+          "end": 724
+        }
+      ],
+      "entities_unique": [
+        {
+          "text": "16 June 2026",
+          "type": "date",
+          "score": 0.8859,
+          "start": 3,
+          "end": 15
+        },
+        {
+          "text": "Colonel Arjun Singh",
+          "type": "person",
+          "score": 0.9454,
+          "start": 46,
+          "end": 65
+        },
+        {
+          "text": "Indian nationality",
+          "type": "nationality",
+          "score": 0.4782,
+          "start": 77,
+          "end": 95
+        },
+        {
+          "text": "Joint Defense Intelligence Directorate",
+          "type": "organization",
+          "score": 0.4393,
+          "start": 141,
+          "end": 179
+        },
+        {
+          "text": "17th Mechanized Infantry Battalion",
+          "type": "military unit",
+          "score": 0.9759,
+          "start": 227,
+          "end": 261
+        },
+        {
+          "text": "Operation Security Armor",
+          "type": "operation name",
+          "score": 0.7223,
+          "start": 288,
+          "end": 312
+        },
+        {
+          "text": "Ladakh",
+          "type": "facility",
+          "score": 0.5146,
+          "start": 388,
+          "end": 394
+        },
+        {
+          "text": "Forward Operating Base Hymgiri",
+          "type": "facility",
+          "score": 0.7604,
+          "start": 405,
+          "end": 435
+        },
+        {
+          "text": "34.1526°N",
+          "type": "coordinates",
+          "score": 0.8855,
+          "start": 458,
+          "end": 467
+        },
+        {
+          "text": "77.5771°E",
+          "type": "coordinates",
+          "score": 0.8194,
+          "start": 469,
+          "end": 478
+        },
+        {
+          "text": "Shera Tataka Vickeld Armored Platform",
+          "type": "weapon system",
+          "score": 0.78,
+          "start": 566,
+          "end": 603
+        },
+        {
+          "text": "BMP-2 Infantry Fighting Wheels",
+          "type": "weapon system",
+          "score": 0.7866,
+          "start": 608,
+          "end": 638
+        },
+        {
+          "text": "multi-battery Joint Rocket",
+          "type": "weapon system",
+          "score": 0.65,
+          "start": 669,
+          "end": 695
+        },
+        {
+          "text": "Pinnavan",
+          "type": "facility",
+          "score": 0.4312,
+          "start": 716,
+          "end": 724
+        }
+      ]
+    },
+    "sample_text5.txt": {
+      "path": "data/ner_samples\\sample_text5.txt",
+      "language": "mr",
+      "translated": true,
+      "text_used": "On 17 June 2026 at 01:35 UTC time, person Colonel Rohit Deshmukh, officer of Indian nationality and senior coordinator of the Joint Defence Intelligence Directorate, Institute, issued a special order to the Military Unit 21st Mechanized Infantry Battalion under the name of Operation Vishra Praha. According to intelligence information received, the facility located in the border area of Arunachal Pradesh, located near the forward operating base Sahyadri, was located near the direction 28.7041°N, 77.1025°E. During the operation, the vehicle was disarmed from the Kestrel trench and deployed to the BMP-2 trench, while the weapon system of the Joint Battle of the Somme-Sharpa was used by the Royal Air Force and the unknown missile defense system, which was later detected by the airborne missile defense system, and the airborne missile defense system, the \"SK-15K\" and the \"SK-15K\" were sent to the airborne missile defense and airborne missile defense equipment, the \"Sharpa\" and the \"SK-15K\" in the same time. On 17 June 2026 at 05:10 UTC, the mission was successfully completed and declared successful by the communication identifier \"SIERRA-NET-11\", and the name of the operation \"Operation Wazirapahit\" was declared. If you want to add only a fictitious/random mobile number to this text, for example: Mobile number: +91 90000 12345 use as a purely fictitious example; do not use as a real person number.",
+      "original_text": "17 जून 2026 रोजी वेळ 01:35 UTC वाजता, व्यक्ती कर्नल रोहित देशमुख, भारतीय राष्ट्रीयत्व असलेले अधिकारी आणि संस्था संयुक्त संरक्षण गुप्तचर संचालनालयाचे वरिष्ठ समन्वयक, यांनी लष्करी युनिट 21 वी यंत्रीकृत पायदळ बटालियनला ऑपरेशन नाव \"ऑपरेशन वज्रप्रहार\" अंतर्गत विशेष आदेश दिले. प्राप्त गुप्तचर माहितीनुसार स्थान अरुणाचल प्रदेशातील सीमावर्ती भागात असलेल्या सुविधा \"फॉरवर्ड ऑपरेटिंग बेस सह्याद्री\" जवळ निर्देशांक 28.7041°N, 77.1025°E येथे संशयास्पद हालचाली आढळून आल्या होत्या. या मोहिमेदरम्यान वाहन टाटा Kestrel बख्तरबंद वाहने आणि BMP-2 युद्धवाहने तैनात करण्यात आली, तर शस्त्र प्रणाली पिनाका मल्टी-बॅरल रॉकेट लाँचर आणि आकाश क्षेपणास्त्र प्रणाली सज्ज ठेवण्यात आली. हवाई संरक्षणासाठी विमान Su-30MKI आणि HAL तेजस लढाऊ विमाने संचार ओळखकर्ता \"FALCON-27\" आणि \"SKYHAWK-05\" या कॉल-साइनखाली कार्यरत होती. त्याच वेळी जहाज INS कोलकाता हे बंगालच्या उपसागरात गस्त घालत असून महत्त्वाची निगराणी माहिती मुख्यालयाकडे पाठवत होते. उपकरणे AN/PRC-158 सामरिक रेडिओ, थर्मल इमेजिंग प्रणाली आणि इलेक्ट्रॉनिक निगराणी उपकरणांच्या मदतीने दलांनी संशयित गटाच्या हालचालींवर लक्ष ठेवले. नंतर व्यक्ती मेजर आदित्य पाटील यांनी अहवाल दिला की अज्ञात सशस्त्र गट स्थान \"कॅम्प विजयगड\" येथून निघून \"चेकपोस्ट डेल्टा-9\" कडे सरकत आहे. या घटनेनंतर संयुक्त कमांड केंद्रात तातडीची बैठक आयोजित करण्यात आली आणि संस्था संयुक्त संरक्षण गुप्तचर संचालनालय, पूर्व कमांड आणि 9 वी पर्वतीय ब्रिगेड यांच्यात समन्वय साधून अतिरिक्त सैन्य तैनात करण्यात आले. 17 जून 2026 रोजी वेळ 05:10 UTC वाजता संचार ओळखकर्ता \"SIERRA-NET-11\" मार्फत मिशन यशस्वीरीत्या पूर्ण झाल्याची पुष्टी मिळाली आणि ऑपरेशन नाव \"ऑपरेशन वज्रप्रहार\" यशस्वी घोषित करण्यात आले.\nजर तुम्हाला या मजकुरात फक्त एक काल्पनिक/random mobile number जोडायचा असेल, तर उदाहरणार्थ:\nमोबाईल क्रमांक: +91 90000 12345\nहा नंबर पूर्णपणे काल्पनिक उदाहरण म्हणून वापरा; वास्तविक व्यक्तीशी संबंधित नंबर म्हणून वापरू नका.",
+      "entities_all": [
+        {
+          "text": "17 June 2026",
+          "type": "date",
+          "score": 0.8361,
+          "start": 3,
+          "end": 15
+        },
+        {
+          "text": "Colonel Rohit Deshmukh",
+          "type": "person",
+          "score": 0.9225,
+          "start": 42,
+          "end": 64
+        },
+        {
+          "text": "Indian nationality",
+          "type": "nationality",
+          "score": 0.5703,
+          "start": 77,
+          "end": 95
+        },
+        {
+          "text": "Joint Defence Intelligence Directorate",
+          "type": "military unit",
+          "score": 0.4773,
+          "start": 126,
+          "end": 164
+        },
+        {
+          "text": "Military Unit 21st Mechanized Infantry Battalion",
+          "type": "military unit",
+          "score": 0.9315,
+          "start": 207,
+          "end": 255
+        },
+        {
+          "text": "Operation Vishra Praha",
+          "type": "operation name",
+          "score": 0.8076,
+          "start": 274,
+          "end": 296
+        },
+        {
+          "text": "Arunachal Pradesh",
+          "type": "location",
+          "score": 0.409,
+          "start": 389,
+          "end": 406
+        },
+        {
+          "text": "forward operating base Sahyadri",
+          "type": "facility",
+          "score": 0.6211,
+          "start": 425,
+          "end": 456
+        },
+        {
+          "text": "28.7041°N",
+          "type": "communication identifier",
+          "score": 0.6661,
+          "start": 489,
+          "end": 498
+        },
+        {
+          "text": "77.1025°E",
+          "type": "communication identifier",
+          "score": 0.6995,
+          "start": 500,
+          "end": 509
+        },
+        {
+          "text": "Kestrel trench",
+          "type": "facility",
+          "score": 0.6384,
+          "start": 567,
+          "end": 581
+        },
+        {
+          "text": "BMP-2 trench",
+          "type": "facility",
+          "score": 0.6478,
+          "start": 602,
+          "end": 614
+        },
+        {
+          "text": "weapon system",
+          "type": "weapon system",
+          "score": 0.4092,
+          "start": 626,
+          "end": 639
+        },
+        {
+          "text": "Joint Battle of the Somme-Sharpa",
+          "type": "operation name",
+          "score": 0.6288,
+          "start": 647,
+          "end": 679
+        },
+        {
+          "text": "Royal Air Force",
+          "type": "military unit",
+          "score": 0.4213,
+          "start": 696,
+          "end": 711
+        },
+        {
+          "text": "unknown missile defense system",
+          "type": "weapon system",
+          "score": 0.4213,
+          "start": 720,
+          "end": 750
+        },
+        {
+          "text": "airborne missile defense system",
+          "type": "weapon system",
+          "score": 0.5073,
+          "start": 784,
+          "end": 815
+        },
+        {
+          "text": "airborne missile defense system",
+          "type": "weapon system",
+          "score": 0.6141,
+          "start": 825,
+          "end": 856
+        },
+        {
+          "text": "SK-15K",
+          "type": "vehicle",
+          "score": 0.7288,
+          "start": 863,
+          "end": 869
+        },
+        {
+          "text": "SK-15K",
+          "type": "vehicle",
+          "score": 0.7215,
+          "start": 880,
+          "end": 886
+        },
+        {
+          "text": "SK-15K",
+          "type": "vehicle",
+          "score": 0.7471,
+          "start": 992,
+          "end": 998
+        },
+        {
+          "text": "17 June 2026",
+          "type": "date",
+          "score": 0.8619,
+          "start": 1021,
+          "end": 1033
+        },
+        {
+          "text": "05:10 UTC",
+          "type": "date",
+          "score": 0.3693,
+          "start": 1037,
+          "end": 1046
+        },
+        {
+          "text": "communication identifier",
+          "type": "operation name",
+          "score": 0.4408,
+          "start": 1118,
+          "end": 1142
+        },
+        {
+          "text": "SIERRA-NET-11",
+          "type": "communication identifier",
+          "score": 0.7412,
+          "start": 1144,
+          "end": 1157
+        },
+        {
+          "text": "Operation Wazirapahit",
+          "type": "operation name",
+          "score": 0.7933,
+          "start": 1191,
+          "end": 1212
+        },
+        {
+          "text": "+91 90000 12345",
+          "type": "communication identifier",
+          "score": 0.4445,
+          "start": 1328,
+          "end": 1343
+        },
+        {
+          "text": "90000 12345",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 1332,
+          "end": 1343
+        },
+        {
+          "text": "90000 12345",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 1682,
+          "end": 1693
+        }
+      ],
+      "entities_unique": [
+        {
+          "text": "17 June 2026",
+          "type": "date",
+          "score": 0.8619,
+          "start": 1021,
+          "end": 1033
+        },
+        {
+          "text": "Colonel Rohit Deshmukh",
+          "type": "person",
+          "score": 0.9225,
+          "start": 42,
+          "end": 64
+        },
+        {
+          "text": "Indian nationality",
+          "type": "nationality",
+          "score": 0.5703,
+          "start": 77,
+          "end": 95
+        },
+        {
+          "text": "Joint Defence Intelligence Directorate",
+          "type": "military unit",
+          "score": 0.4773,
+          "start": 126,
+          "end": 164
+        },
+        {
+          "text": "Military Unit 21st Mechanized Infantry Battalion",
+          "type": "military unit",
+          "score": 0.9315,
+          "start": 207,
+          "end": 255
+        },
+        {
+          "text": "Operation Vishra Praha",
+          "type": "operation name",
+          "score": 0.8076,
+          "start": 274,
+          "end": 296
+        },
+        {
+          "text": "Arunachal Pradesh",
+          "type": "location",
+          "score": 0.409,
+          "start": 389,
+          "end": 406
+        },
+        {
+          "text": "forward operating base Sahyadri",
+          "type": "facility",
+          "score": 0.6211,
+          "start": 425,
+          "end": 456
+        },
+        {
+          "text": "28.7041°N",
+          "type": "communication identifier",
+          "score": 0.6661,
+          "start": 489,
+          "end": 498
+        },
+        {
+          "text": "77.1025°E",
+          "type": "communication identifier",
+          "score": 0.6995,
+          "start": 500,
+          "end": 509
+        },
+        {
+          "text": "Kestrel trench",
+          "type": "facility",
+          "score": 0.6384,
+          "start": 567,
+          "end": 581
+        },
+        {
+          "text": "BMP-2 trench",
+          "type": "facility",
+          "score": 0.6478,
+          "start": 602,
+          "end": 614
+        },
+        {
+          "text": "weapon system",
+          "type": "weapon system",
+          "score": 0.4092,
+          "start": 626,
+          "end": 639
+        },
+        {
+          "text": "Joint Battle of the Somme-Sharpa",
+          "type": "operation name",
+          "score": 0.6288,
+          "start": 647,
+          "end": 679
+        },
+        {
+          "text": "Royal Air Force",
+          "type": "military unit",
+          "score": 0.4213,
+          "start": 696,
+          "end": 711
+        },
+        {
+          "text": "unknown missile defense system",
+          "type": "weapon system",
+          "score": 0.4213,
+          "start": 720,
+          "end": 750
+        },
+        {
+          "text": "airborne missile defense system",
+          "type": "weapon system",
+          "score": 0.6141,
+          "start": 825,
+          "end": 856
+        },
+        {
+          "text": "SK-15K",
+          "type": "vehicle",
+          "score": 0.7471,
+          "start": 992,
+          "end": 998
+        },
+        {
+          "text": "05:10 UTC",
+          "type": "date",
+          "score": 0.3693,
+          "start": 1037,
+          "end": 1046
+        },
+        {
+          "text": "communication identifier",
+          "type": "operation name",
+          "score": 0.4408,
+          "start": 1118,
+          "end": 1142
+        },
+        {
+          "text": "SIERRA-NET-11",
+          "type": "communication identifier",
+          "score": 0.7412,
+          "start": 1144,
+          "end": 1157
+        },
+        {
+          "text": "Operation Wazirapahit",
+          "type": "operation name",
+          "score": 0.7933,
+          "start": 1191,
+          "end": 1212
+        },
+        {
+          "text": "+91 90000 12345",
+          "type": "communication identifier",
+          "score": 0.4445,
+          "start": 1328,
+          "end": 1343
+        },
+        {
+          "text": "90000 12345",
+          "type": "phone number",
+          "score": 1.0,
+          "start": 1332,
+          "end": 1343
+        }
+      ]
+    }
+  }
+}

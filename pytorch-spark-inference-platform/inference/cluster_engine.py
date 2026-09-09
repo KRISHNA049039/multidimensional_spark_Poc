@@ -100,7 +100,8 @@ def _get_class_map():
                                      EfficientNetB0Classifier)
     from models.signal_models import (SignalDenoiser, ThreatPrioritizer,
                                       RFFingerprinter, AnomalyDetector)
-    return {
+    from models.plugin_loader import get_plugin_class_map
+    class_map = {
         "ew_classifier": EWSignalClassifier,
         "yolov8_nano": YOLOv8Nano,
         "yolov8_small": YOLOv8Small,
@@ -112,6 +113,8 @@ def _get_class_map():
         "rf_fingerprinter": RFFingerprinter,
         "anomaly_detector": AnomalyDetector,
     }
+    class_map.update(get_plugin_class_map())
+    return class_map
 
 
 def run_cluster_inference(

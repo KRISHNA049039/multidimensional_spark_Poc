@@ -1,0 +1,8 @@
+{
+  "ner_translate": {
+    "module": "models.pipelines.ner_translate.pipeline",
+    "description": "Offline multilingual NER: NLLB translation (200 languages) -> GLiNER zero-shot entity extraction. Accepts text/PDF/DOCX/PPTX/XLSX/images/etc.",
+    "weights": ["models/weights/gliner-multi", "models/weights/nllb-200-distilled-600M"],
+    "extra_requirements": ["gliner", "transformers", "sentencepiece", "py3langid", "pyarrow"]
+  }
+}

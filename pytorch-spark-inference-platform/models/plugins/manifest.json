@@ -1,0 +1,11 @@
+{
+  "example_mlp": {
+    "module": "models.plugins.example_model",
+    "class_name": "ExampleMLP",
+    "weights_path": "",
+    "input_shape": [64],
+    "output_desc": "4-class logits (example plugin)",
+    "category": "custom",
+    "estimated_memory_mb": 10
+  }
+}
