@@ -3,7 +3,9 @@ FROM nvidia/cuda:12.6.3-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Install Python 3.11, Java 17, and utilities
+# Install Python 3.11, Java 17, Tesseract OCR + poppler (PDF rasterization),
+# and utilities. Tesseract/poppler are required by extract_text()'s PDF/image
+# paths in models/pipelines/ner_translate/mt_ner_all_formats.py.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common wget gnupg curl && \
@@ -11,7 +13,11 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.11 python3.11-venv python3.11-dev python3-pip \
-        openjdk-17-jre-headless procps && \
+        openjdk-17-jre-headless procps \
+        tesseract-ocr tesseract-ocr-mar tesseract-ocr-hin tesseract-ocr-tel \
+        tesseract-ocr-tam tesseract-ocr-kan tesseract-ocr-ben tesseract-ocr-guj \
+        tesseract-ocr-pan tesseract-ocr-mal tesseract-ocr-urd \
+        poppler-utils && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
     apt-get clean && \

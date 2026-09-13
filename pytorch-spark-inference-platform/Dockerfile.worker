@@ -44,9 +44,13 @@ ENV SPARK_HOME=/opt/spark
 ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 ENV PYSPARK_PYTHON=python
 
-# CPU-only PyTorch — pinned stable release, not a floating index resolve
+# CPU-only PyTorch — pinned stable release, not a floating index resolve.
+# torch==2.5.1 had no cp314 wheel (base image is python:3.14-slim), so the
+# install below used to fail outright. 2.9.1 is the first stable torch
+# release published for cp314; torchvision==0.24.1 is the version that
+# matches it exactly (torchvision pins torch==<exact version> per release).
 RUN python -m pip install --no-cache-dir \
-    torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu && \
+    torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cpu && \
     python -m pip install --no-cache-dir \
     pyspark==4.2.0 psutil numpy pandas scikit-learn matplotlib
 
@@ -93,14 +97,19 @@ ENV SPARK_HOME=/opt/spark
 ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 ENV PYSPARK_PYTHON=python
 
-# GPU PyTorch — PINNED to a specific nightly build, not a floating --pre resolve.
-# Replace this exact version string with whatever nightly you've verified
-# works on sm_120 (RTX 5060). Find it via:
-#   docker run --rm pytorch-spark-worker:gpu python -m pip show torch
-# then hardcode it here so rebuilds are reproducible, not a moving target.
+# GPU PyTorch — PINNED to a specific STABLE build, not a floating --pre/nightly
+# resolve. The nightly build this used to pin (2.9.0.dev20250115+cu128) does
+# not exist on the nightly cu128 index — that install was failing outright.
+# torch 2.9.1+cu128 is a real, stable, released build with cp314 wheels and
+# sm_120 (Blackwell/RTX 5060) support (Blackwell support first landed in the
+# 2.7 series). torchvision==0.24.1 is the version torchvision itself pins as
+# its exact torch dependency for this release — keep them paired.
+# Re-verify on your hardware via:
+#   docker run --rm --gpus all pytorch-spark-worker:gpu python -c \
+#     "import torch; print(torch.__version__, torch.cuda.get_device_capability(0))"
 RUN python -m pip install --no-cache-dir \
-    torch==2.9.0.dev20250115+cu128 torchvision==0.24.0.dev20250115+cu128 \
-    --index-url https://download.pytorch.org/whl/nightly/cu128 && \
+    torch==2.9.1 torchvision==0.24.1 \
+    --index-url https://download.pytorch.org/whl/cu128 && \
     python -m pip install --no-cache-dir \
     pyspark==4.2.0 psutil numpy pandas scikit-learn matplotlib
 
