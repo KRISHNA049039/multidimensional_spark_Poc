@@ -6,12 +6,17 @@
 # version every other model relied on.
 #
 # Build order (base must exist first — build it via the root Dockerfile the
-# same way the shared cluster does):
+# same way the shared cluster does; then the wheelhouse; then this image):
 #   docker build -t multi-model-inference:latest -f deploy/Dockerfile .
+#   bash deploy/scripts/build_ner_translate_wheelhouse.sh
 #   docker build -t ner-translate-worker:latest -f deploy/Dockerfile.ner_translate .
 #
 # Run this pipeline's own small cluster (separate from the shared cluster):
 #   docker compose -f deploy/docker-compose.ner_translate.yml up
+#
+# Runtime dependency hotfix (rare — see wheels-hotfix/ner_translate/README.md):
+# deploy/apply_wheels_hotfix.sh runs at container start and installs anything
+# dropped in the /wheels-hotfix mount, on top of what's baked in below.
 # ===========================================================================
 FROM multi-model-inference:latest
 
@@ -28,5 +33,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # This pipeline's own deps only — never add anything here that belongs in
 # the shared requirements.txt instead.
+#
+# Installed from the LOCAL wheelhouse (deploy/scripts/build_ner_translate_wheelhouse.sh
+# output), not the live index — --no-index makes the build fail loudly if
+# the wheelhouse is missing/stale, rather than silently resolving a
+# different version than whatever was tested (this bit us once already —
+# see docs/CHANGELOG_20260913.md, Dockerfile.worker's nightly torch pin
+# that no longer existed by the time it was rebuilt).
+COPY wheels/ner_translate/ /tmp/wheels/
 COPY models/pipelines/ner_translate/requirements.txt /tmp/ner_translate_requirements.txt
-RUN pip install --no-cache-dir -r /tmp/ner_translate_requirements.txt
+RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels -r /tmp/ner_translate_requirements.txt && \
+    rm -rf /tmp/wheels
+
+# Dependency hotfix mechanism — no-op unless /wheels-hotfix has content at
+# container start. See deploy/apply_wheels_hotfix.sh's own header comment
+# for what this is (and isn't) for.
+COPY deploy/apply_wheels_hotfix.sh /usr/local/bin/apply_wheels_hotfix.sh
+RUN chmod +x /usr/local/bin/apply_wheels_hotfix.sh

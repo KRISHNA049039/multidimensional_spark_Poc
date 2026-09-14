@@ -9,3 +9,12 @@ venv/
 results/raw_results.json
 *.pt
 *.pth
+
+# Wheelhouses (deploy/scripts/build_*_wheelhouse.sh output) and dependency
+# hotfix drops — regenerable/operational artifacts, never source of truth.
+# Ignoring by file pattern (not by directory + negation — git can't
+# re-include a file under an excluded parent directory, so that approach
+# silently fails) keeps each wheels-hotfix/<pipeline>/README.md tracked
+# automatically since it doesn't match *.whl.
+wheels/
+**/wheels-hotfix/**/*.whl

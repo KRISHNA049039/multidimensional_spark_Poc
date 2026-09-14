@@ -1,10 +1,10 @@
 # Changes Summary — Spark/Docker/NER Pipeline Version Mismatch & Dependency Isolation
 
 One consolidated reference for everything implemented across this work.
-Full technical diffs live in `CHANGELOG_20260913.md` and
-`CHANGELOG_20260914.md` — this doc pulls both together, states current git
-status accurately, and separates **implemented** from **discussed but not
-yet built**.
+Full technical diffs for Parts 1-2 live in `CHANGELOG_20260913.md` and
+`CHANGELOG_20260914.md`; Part 3 is documented only here. This doc states
+current git status accurately and separates **implemented** from
+**discussed but not yet built**.
 
 ---
 
@@ -64,28 +64,49 @@ real change from Part 1's state. Use `docker-compose.ner_translate.yml`.
 together — identical 73-package resolution to the merged version, torch
 still pinned at `2.6.0`.
 
-**Git status: NOT yet committed.** Sitting as working-tree changes on the
-same `fix/docker-ner-pipeline-version-mismatch` branch:
-```
-modified:   deploy/Dockerfile
-modified:   docs/FRAMEWORK_OVERVIEW.md
-modified:   docs/MODEL_CONTAINER_ISOLATION.md
-modified:   docs/REPO_STRUCTURE.md
-modified:   models/pipelines/manifest.json
-modified:   requirements.txt
-modified:   submit_pipeline_job.py
-new file:   deploy/Dockerfile.ner_translate
-new file:   deploy/docker-compose.ner_translate.yml
-new file:   docs/CHANGELOG_20260914.md
-new file:   models/pipelines/ner_translate/requirements.txt
-```
+**Git status: committed and pushed.** Branch
+`fix/docker-ner-pipeline-version-mismatch`, commit `adb2bed`, pushed to
+`origin`. PR not yet opened (`gh` CLI isn't installed in this environment —
+GitHub's compare link is
+`https://github.com/KRISHNA049039/multidimensional_spark_Poc/pull/new/fix/docker-ner-pipeline-version-mismatch`).
+
+---
+
+## Part 3 — Dependency wheelhouse + runtime hotfix mount (2026-09-14, continued)
+
+**Question raised:** should dependencies install into the image at build
+time, or be mountable via Docker volumes at runtime? Answer landed on:
+build-time wheelhouse as the primary mechanism (also resolves Part 2's open
+"wheel-vendoring" item), with runtime volume-mounted wheels added ONLY as
+an explicit hotfix path — not the default. Runtime-as-primary was rejected
+because this repo has already hit a real driver/worker Python-environment
+mismatch bug once (`docs/FRAMEWORK_OVERVIEW.md`), and volume-mounted deps
+that can silently drift between the master and worker containers (or
+between nodes) reproduce exactly that failure mode; it also breaks the
+airgapped deployment's self-containment (`docs/air_gapped_dep.md` — a
+`docker load`d image should need nothing else to run).
+
+| File | Change |
+|---|---|
+| `deploy/scripts/build_ner_translate_wheelhouse.sh` **(new)** | Downloads `ner_translate`'s full dependency closure (including transitive deps) into `wheels/ner_translate/` via `pip download`. Two-pass: strict cross-platform wheel-only download for most packages, plus a separate unrestricted pass for `odfpy`/`ebooklib` (pure-Python, sdist-only — pip refuses cross-platform sdist downloads with `--only-binary` unset, confirmed while testing). Run on an internet-connected machine before `docker build` |
+| `deploy/Dockerfile.ner_translate` | Now installs via `pip install --no-index --find-links=/tmp/wheels -r ...` against the wheelhouse above, instead of hitting the live index — build fails loudly if the wheelhouse is missing/stale rather than silently resolving a different version. Also copies in the hotfix script below |
+| `deploy/apply_wheels_hotfix.sh` **(new)** | Runs at container start (before Spark launches); installs anything found in `/wheels-hotfix`, no-op if empty. Its own header comment explains why this isn't the primary mechanism |
+| `deploy/docker-compose.ner_translate.yml` | Both services mount `../wheels-hotfix/ner_translate:/wheels-hotfix` and call the hotfix script before `start-master.sh`/`start-worker.sh` |
+| `wheels-hotfix/ner_translate/README.md` **(new)** | Explains when to use the hotfix path, how, and the "apply to every node, not just one" warning |
+| `.gitignore` | Added `wheels/` (the generated wheelhouse — regenerable, never committed) and `**/wheels-hotfix/**/*.whl` (dropped hotfix files — the README stays tracked since it doesn't match `*.whl`). Both patterns verified with `git check-ignore` after an initial version of the negation silently failed (git can't re-include a file under an excluded parent directory — switched to ignoring by file pattern instead of directory+negation) |
+
+**Verified, not assumed:** actually ran the wheelhouse script end-to-end (50
+files produced, including the two sdists), actually ran `apply_wheels_hotfix.sh`
+for both the empty and wheel-present cases, validated the compose file's
+YAML, and confirmed with `git check-ignore -v` that the wheelhouse is fully
+ignored while `wheels-hotfix/*/README.md` stays tracked and `.whl` files
+under it don't.
+
+**Git status: NOT yet committed.**
 
 ---
 
 ## Discussed, NOT implemented — pending your decision
-
-Two things came up after Part 2 that are **design discussion only** — no
-files changed for either yet:
 
 1. **Model 2 vs. Model 3 architecture pivot.** You raised a genuinely
    stronger alternative to Part 2's "separate image + separate Spark
@@ -95,15 +116,9 @@ files changed for either yet:
    transfer cost you flagged (one image instead of N tarballs), same
    dependency isolation strength, but keeps one Spark cluster instead of
    N. I asked which way to go; you interrupted that question to ask about
-   wheel files instead — the architecture decision is still open.
-2. **Wheel-vendoring for build reproducibility.** Recommended switching
-   `pip install -r requirements.txt` (hits the live index at build time) to
-   `pip install --no-index --find-links=<wheelhouse>` against a
-   `pip download`-generated, gitignored wheelhouse directory — motivated by
-   the fact `Dockerfile.worker`'s nightly torch pin had already gone stale
-   once, and the DRDO/classified context named in `docs/air_gapped_dep.md`
-   generally wants pinned, auditable binaries rather than a live index
-   resolve. Not implemented — waiting on a go-ahead.
+   wheel files instead — the architecture decision is still open, and Part
+   3 doesn't resolve it (it's orthogonal: Part 3 is about *how* a pip
+   install happens, not *how many* images/venvs exist).
 
 ---
 
@@ -116,7 +131,9 @@ files changed for either yet:
 pip install -r requirements.txt -r models/pipelines/ner_translate/requirements.txt
 python submit_pipeline_job.py --pipeline ner_translate --input data/ner_samples --partitions 1
 
-# Multi-container cluster, CPU-only, exercises the actual isolation
+# Multi-container cluster, CPU-only, exercises the actual isolation +
+# wheelhouse build (do this once, or whenever ner_translate's requirements.txt changes)
+bash deploy/scripts/build_ner_translate_wheelhouse.sh
 docker build -t multi-model-inference:latest -f deploy/Dockerfile .
 docker compose -f deploy/docker-compose.ner_translate.yml build
 docker compose -f deploy/docker-compose.ner_translate.yml up
@@ -133,6 +150,5 @@ Requires `models/weights/gliner-multi/` and
 ## Next steps
 
 - Decide Model 2 vs. Model 3 (or a hybrid) for the architecture question above
-- Decide whether to build the wheel-vendoring pattern, and for which images
-- Commit Part 2's changes (currently uncommitted on `fix/docker-ner-pipeline-version-mismatch`)
-- Push the branch + open a PR against `main`, or fast-forward directly — your call, not yet done either way
+- Commit Part 3's changes (currently uncommitted, same branch)
+- Open the PR (link above) — nothing has merged to `main` yet at any point in this work

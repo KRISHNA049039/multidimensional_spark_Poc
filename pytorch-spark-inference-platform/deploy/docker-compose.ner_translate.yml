@@ -18,6 +18,12 @@
 #   (master_url in models/pipelines/manifest.json already points submit_pipeline_job.py
 #   at spark://ner-translate-master:7077 by default — no --master flag needed)
 #
+# Dependency hotfix (rare — see wheels-hotfix/ner_translate/README.md): both
+# services mount wheels-hotfix/ner_translate as /wheels-hotfix, empty by
+# default (no-op). Drop matching .whl files on EVERY node before restarting
+# — a hotfix applied to only one node causes a driver/worker dependency
+# mismatch, a real bug class this repo has already hit once.
+#
 # Cleanup:
 #   docker compose -f deploy/docker-compose.ner_translate.yml down
 # =============================================================================
@@ -36,8 +42,10 @@ services:
       - ../results:/app/results
       - ../data:/app/data
       - ../models:/app/models
+      - ../wheels-hotfix/ner_translate:/wheels-hotfix
     command: >
       bash -c "
+        /usr/local/bin/apply_wheels_hotfix.sh &&
         $$SPARK_HOME/sbin/start-master.sh -h ner-translate-master &&
         tail -f $$SPARK_HOME/logs/*master*
       "
@@ -63,9 +71,11 @@ services:
       - ../results:/app/results
       - ../data:/app/data
       - ../models:/app/models
+      - ../wheels-hotfix/ner_translate:/wheels-hotfix
     command: >
       bash -c "
         sleep 5 &&
+        /usr/local/bin/apply_wheels_hotfix.sh &&
         $$SPARK_HOME/sbin/start-worker.sh spark://ner-translate-master:7077 -c 2 -m 4g &&
         tail -f $$SPARK_HOME/logs/*worker*
       "
