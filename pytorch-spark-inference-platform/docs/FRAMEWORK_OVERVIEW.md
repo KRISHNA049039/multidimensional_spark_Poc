@@ -112,10 +112,11 @@ Docker at all (e.g. Windows Server EC2 — see
 **Dependencies to install:**
 - Java 17 (Temurin or any JDK) — set `JAVA_HOME`
 - Python 3.12 with `pip install -r requirements.txt`
-- For pipeline plugins specifically: whatever that pipeline's manifest entry
-  lists under `extra_requirements` (e.g. `ner_translate` needs
-  `gliner transformers sentencepiece py3langid pyarrow`, none of which are in
-  the base `requirements.txt`)
+- For pipeline plugins specifically: that pipeline's own requirements file,
+  named in its manifest entry's `requirements_file` (e.g. `ner_translate` ->
+  `pip install -r models/pipelines/ner_translate/requirements.txt`) — kept
+  separate from the base `requirements.txt` on purpose, see
+  `docs/MODEL_CONTAINER_ISOLATION.md`
 - If more than one Python is on `PATH`, pin the one PySpark should use:
   `PYSPARK_PYTHON` / `PYSPARK_DRIVER_PYTHON` env vars — a real bug hit during
   development when a stray second Python caused a driver/worker version

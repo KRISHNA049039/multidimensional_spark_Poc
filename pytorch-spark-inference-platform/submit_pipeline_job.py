@@ -12,7 +12,9 @@ import glob
 import importlib
 import json
 import os
+import socket
 from datetime import datetime
+from urllib.parse import urlparse
 
 from inference.cluster_engine import create_cluster_session
 from inference.text_pipeline_engine import run_text_pipeline_job
@@ -23,6 +25,43 @@ MANIFEST_PATH = os.path.join("models", "pipelines", "manifest.json")
 def _load_manifest(path: str = MANIFEST_PATH) -> dict:
     with open(path) as f:
         return json.load(f)
+
+
+def _host_resolvable(spark_url: str, timeout: float = 1.0) -> bool:
+    """Best-effort check that a spark://host:port URL's host actually
+    resolves. Lets us default to a pipeline's own dedicated cluster
+    (manifest "master_url") only when we're really running inside that
+    cluster's Docker network, and fall back to local[4] everywhere else
+    (bare local dev, a shell on the host, the shared cluster's containers)
+    without the job just failing to connect.
+    """
+    try:
+        host, port = urlparse(spark_url).hostname, urlparse(spark_url).port
+        if not host:
+            return False
+        socket.setdefaulttimeout(timeout)
+        socket.getaddrinfo(host, port or 7077)
+        return True
+    except OSError:
+        return False
+
+
+def _resolve_master_url(cli_master: str | None, manifest_entry: dict) -> str | None:
+    """Precedence: explicit --master > SPARK_MASTER_URL/SPARK_MASTER env var
+    (create_cluster_session's own fallback — respected here so it still wins,
+    matching how the shared cluster's docs already pass it via `docker exec
+    ... bash -c "SPARK_MASTER_URL=... python ..."`) > this pipeline's own
+    dedicated cluster (manifest "master_url"), but only if that host actually
+    resolves > local[4].
+    """
+    if cli_master:
+        return cli_master
+    if os.environ.get("SPARK_MASTER_URL") or os.environ.get("SPARK_MASTER"):
+        return None  # let create_cluster_session pick up the env var itself
+    manifest_master = manifest_entry.get("master_url")
+    if manifest_master and _host_resolvable(manifest_master):
+        return manifest_master
+    return None  # create_cluster_session's own default: local[4]
 
 
 def _collect_files(input_path: str):
@@ -43,7 +82,9 @@ def main():
     parser.add_argument("--partitions", type=int, default=2)
     parser.add_argument("--mode", default="hybrid", choices=["cpu_only", "gpu_only", "hybrid"],
                          help="Informational only today - pipeline plugins pick their own device internally")
-    parser.add_argument("--master", default=None, help="Spark master URL override (default: env or local[4])")
+    parser.add_argument("--master", default=None,
+                         help="Spark master URL override (default: this pipeline's manifest "
+                              "master_url if set, else env var, else local[4])")
     args = parser.parse_args()
 
     manifest = _load_manifest()
@@ -57,7 +98,8 @@ def main():
     if not paths:
         raise SystemExit(f"No input files found at {args.input}")
 
-    spark = create_cluster_session(app_name=f"pipeline-{args.pipeline}", master_url=args.master)
+    master_url = _resolve_master_url(args.master, manifest[args.pipeline])
+    spark = create_cluster_session(app_name=f"pipeline-{args.pipeline}", master_url=master_url)
     try:
         result = run_text_pipeline_job(
             spark, paths, mod.load, mod.run,

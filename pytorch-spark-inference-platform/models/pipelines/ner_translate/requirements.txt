@@ -1,0 +1,31 @@
+# ner_translate pipeline — extra dependencies on top of the base image's
+# core requirements.txt (which already provides torch==2.6.0, numpy==2.1.3,
+# pyarrow, pandas, etc. — do NOT repin those here).
+#
+# This file is the single source of truth for this pipeline's deps: it's
+# installed by deploy/Dockerfile.ner_translate for the cluster image, and is
+# what a local (non-Docker) developer should `pip install -r` before running
+# `python submit_pipeline_job.py --pipeline ner_translate` against local[4].
+#
+# transformers capped <5.0: the NLLB tokenizer/generate() calls in
+# mt_ner_all_formats.py target the 4.x API; transformers 5.x is a breaking
+# rewrite. py3langid==0.4.0 requires numpy>=2.0 (satisfied by the base image).
+gliner==0.2.13
+transformers==4.57.6
+sentencepiece==0.2.0
+py3langid==0.4.0
+
+# Multi-format document extraction — one line per branch of extract_text()
+# in mt_ner_all_formats.py.
+pypdf==5.1.0          # .pdf
+pdf2image==1.17.0     # scanned-PDF -> image rasterization (needs poppler-utils, see Dockerfile.ner_translate)
+pillow==11.0.0        # image loading for OCR
+pytesseract==0.3.13   # OCR (needs tesseract-ocr + language packs, see Dockerfile.ner_translate)
+python-docx==1.1.2    # .docx
+openpyxl==3.1.5       # .xlsx/.xlsm
+python-pptx==1.0.2    # .pptx
+odfpy==1.4.1          # .odt
+ebooklib==0.18        # .epub
+beautifulsoup4==4.12.3  # .html/.htm, .epub
+striprtf==0.0.28      # .rtf
+xlrd==2.0.1           # legacy .xls

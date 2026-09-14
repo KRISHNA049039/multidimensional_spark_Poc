@@ -1,0 +1,76 @@
+# =============================================================================
+# ner_translate pipeline — its own dedicated Spark cluster, isolated from the
+# shared cluster in docker-compose.cluster.yml (deps never mix, see
+# docs/MODEL_CONTAINER_ISOLATION.md Option A). Ports are offset (+1) from the
+# shared cluster's so both can run side by side if needed.
+#
+# Build (base image first, then this one):
+#   docker build -t multi-model-inference:latest -f deploy/Dockerfile .
+#   docker compose -f deploy/docker-compose.ner_translate.yml build
+#
+# Run:
+#   docker compose -f deploy/docker-compose.ner_translate.yml up
+#
+# Submit a job (driver runs inside the master container, same pattern as the
+# shared cluster's usage — the driver process imports gliner/transformers too,
+# so it must run in this image, not on the host or the shared cluster):
+#   docker exec -it ner-translate-master bash -c "python submit_pipeline_job.py --pipeline ner_translate --input data/ner_samples --partitions 2"
+#   (master_url in models/pipelines/manifest.json already points submit_pipeline_job.py
+#   at spark://ner-translate-master:7077 by default — no --master flag needed)
+#
+# Cleanup:
+#   docker compose -f deploy/docker-compose.ner_translate.yml down
+# =============================================================================
+
+services:
+  ner-translate-master:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ner_translate
+    container_name: ner-translate-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=ner-translate-master
+      - CUDA_VISIBLE_DEVICES=
+    volumes:
+      - ../results:/app/results
+      - ../data:/app/data
+      - ../models:/app/models
+    command: >
+      bash -c "
+        $$SPARK_HOME/sbin/start-master.sh -h ner-translate-master &&
+        tail -f $$SPARK_HOME/logs/*master*
+      "
+    ports:
+      - "7078:7077"
+      - "8081:8080"
+      - "4041:4040"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ner-translate-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ner_translate
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://ner-translate-master:7077
+      - CUDA_VISIBLE_DEVICES=
+    volumes:
+      - ../results:/app/results
+      - ../data:/app/data
+      - ../models:/app/models
+    command: >
+      bash -c "
+        sleep 5 &&
+        $$SPARK_HOME/sbin/start-worker.sh spark://ner-translate-master:7077 -c 2 -m 4g &&
+        tail -f $$SPARK_HOME/logs/*worker*
+      "
+    deploy:
+      replicas: 1
+    depends_on:
+      ner-translate-master:
+        condition: service_healthy

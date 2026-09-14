@@ -1,0 +1,32 @@
+# ===========================================================================
+# ner_translate pipeline image — extends the shared base image (deploy/
+# Dockerfile) with ONLY this pipeline's own dependencies. See
+# docs/MODEL_CONTAINER_ISOLATION.md (Option A) for why this exists: a shared
+# image + shared requirements.txt let one pipeline's deps silently change a
+# version every other model relied on.
+#
+# Build order (base must exist first — build it via the root Dockerfile the
+# same way the shared cluster does):
+#   docker build -t multi-model-inference:latest -f deploy/Dockerfile .
+#   docker build -t ner-translate-worker:latest -f deploy/Dockerfile.ner_translate .
+#
+# Run this pipeline's own small cluster (separate from the shared cluster):
+#   docker compose -f deploy/docker-compose.ner_translate.yml up
+# ===========================================================================
+FROM multi-model-inference:latest
+
+# Tesseract OCR + poppler (PDF rasterization) — required by extract_text()'s
+# PDF/image paths in models/pipelines/ner_translate/mt_ner_all_formats.py.
+# Language packs match that file's OCR_LANG constant exactly — extend both
+# together if you add a language.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-mar tesseract-ocr-hin tesseract-ocr-tel \
+        tesseract-ocr-tam tesseract-ocr-kan tesseract-ocr-ben tesseract-ocr-guj \
+        tesseract-ocr-pan tesseract-ocr-mal tesseract-ocr-urd \
+        poppler-utils && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# This pipeline's own deps only — never add anything here that belongs in
+# the shared requirements.txt instead.
+COPY models/pipelines/ner_translate/requirements.txt /tmp/ner_translate_requirements.txt
+RUN pip install --no-cache-dir -r /tmp/ner_translate_requirements.txt

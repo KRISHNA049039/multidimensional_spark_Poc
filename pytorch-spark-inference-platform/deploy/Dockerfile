@@ -3,9 +3,13 @@ FROM nvidia/cuda:12.6.3-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Install Python 3.11, Java 17, Tesseract OCR + poppler (PDF rasterization),
-# and utilities. Tesseract/poppler are required by extract_text()'s PDF/image
-# paths in models/pipelines/ner_translate/mt_ner_all_formats.py.
+# This is the BASE image for every model/pipeline in the framework — Python,
+# Java, Spark, torch, and the CORE requirements.txt only. Pipeline-specific
+# system/Python deps (e.g. ner_translate's tesseract-ocr + gliner/transformers)
+# live in their own deploy/Dockerfile.<pipeline>, which FROMs the image built
+# here — see docs/MODEL_CONTAINER_ISOLATION.md (Option A) for why.
+#
+# Install Python 3.11, Java 17, and utilities.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common wget gnupg curl && \
@@ -13,11 +17,7 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.11 python3.11-venv python3.11-dev python3-pip \
-        openjdk-17-jre-headless procps \
-        tesseract-ocr tesseract-ocr-mar tesseract-ocr-hin tesseract-ocr-tel \
-        tesseract-ocr-tam tesseract-ocr-kan tesseract-ocr-ben tesseract-ocr-guj \
-        tesseract-ocr-pan tesseract-ocr-mal tesseract-ocr-urd \
-        poppler-utils && \
+        openjdk-17-jre-headless procps && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
     apt-get clean && \

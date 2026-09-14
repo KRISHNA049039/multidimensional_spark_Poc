@@ -18,11 +18,14 @@ pytorch-spark-inference-platform/
 │   │   └── weights/                (gitignored, .pt state_dict files)
 │   ├── pipelines/                 # COMPLEX plugins: multi-model, file/text
 │   │   │                          # in, structured results out (this doc)
-│   │   ├── manifest.json          # {name: {module, weights, extra_requirements}}
+│   │   ├── manifest.json          # {name: {module, weights, requirements_file, master_url}}
 │   │   └── ner_translate/
 │   │       ├── pipeline.py        # load()/run() wrapper — the only file
 │   │       │                      # that talks to the framework
-│   │       └── mt_ner_all_formats.py  # the actual pipeline, untouched logic
+│   │       ├── mt_ner_all_formats.py  # the actual pipeline, untouched logic
+│   │       └── requirements.txt   # THIS pipeline's deps only — never merged
+│   │                              # into the shared requirements.txt (see
+│   │                              # docs/MODEL_CONTAINER_ISOLATION.md)
 │   └── weights/                   # gitignored — ALL large model binaries,
 │       ├── .gitignore             # regardless of which plugin owns them
 │       ├── README.md              # how to (re)populate this dir
