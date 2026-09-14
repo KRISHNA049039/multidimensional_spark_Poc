@@ -138,8 +138,12 @@ docker build -t multi-model-inference:latest -f deploy/Dockerfile .
 docker compose -f deploy/docker-compose.ner_translate.yml build
 docker compose -f deploy/docker-compose.ner_translate.yml up
 docker exec -it ner-translate-master bash -c \
-  "python submit_pipeline_job.py --pipeline ner_translate --input data/ner_samples --partitions 2"
+  "python submit_pipeline_job.py --pipeline ner_translate --input /app/data/ner_samples --partitions 2"
 ```
+(Absolute path on the cluster invocation — a real distributed executor
+runs from its own work directory, not `/app`; a relative path here
+"succeeds" while erroring on every file. Local `local[4]` above is
+unaffected — driver and "executor" share one process/CWD there.)
 
 Requires `models/weights/gliner-multi/` and
 `models/weights/nllb-200-distilled-600M/` populated first — see

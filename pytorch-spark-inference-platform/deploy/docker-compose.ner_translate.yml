@@ -14,9 +14,13 @@
 # Submit a job (driver runs inside the master container, same pattern as the
 # shared cluster's usage — the driver process imports gliner/transformers too,
 # so it must run in this image, not on the host or the shared cluster):
-#   docker exec -it ner-translate-master bash -c "python submit_pipeline_job.py --pipeline ner_translate --input data/ner_samples --partitions 2"
+#   docker exec -it ner-translate-master bash -c "python submit_pipeline_job.py --pipeline ner_translate --input /app/data/ner_samples --partitions 2"
 #   (master_url in models/pipelines/manifest.json already points submit_pipeline_job.py
-#   at spark://ner-translate-master:7077 by default — no --master flag needed)
+#   at spark://ner-translate-master:7077 by default — no --master flag needed.
+#   Use an ABSOLUTE input path here, not a relative one — on a real
+#   distributed cluster each executor task runs from its own work
+#   directory, not /app, so a relative path "succeeds" while silently
+#   erroring on every single file.)
 #
 # Dependency hotfix (rare — see wheels-hotfix/ner_translate/README.md): both
 # services mount wheels-hotfix/ner_translate as /wheels-hotfix, empty by

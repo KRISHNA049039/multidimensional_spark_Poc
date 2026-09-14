@@ -10,10 +10,50 @@
 # transformers capped <5.0: the NLLB tokenizer/generate() calls in
 # mt_ner_all_formats.py target the 4.x API; transformers 5.x is a breaking
 # rewrite. py3langid==0.4.0 requires numpy>=2.0 (satisfied by the base image).
+#
+# transformers==4.57.6 (latest 4.x at the time) broke loading gliner's own
+# DeBERTa-v2 tokenizer: transformers/tokenization_utils_base.py's
+# _set_model_specific_special_tokens() does
+# `self.SPECIAL_TOKENS_ATTRIBUTES + list(special_tokens.keys())`, expecting
+# extra_special_tokens as a dict — gliner_multi-v2.1's saved tokenizer
+# config feeds it a list, crashing with "'list' object has no attribute
+# 'keys'". gliner==0.2.13 only declares transformers>=4.38.2 (no upper
+# bound) and was released 2024-09-21 — 4.57.6 is 2 years of transformers
+# releases later. 4.45.2 (released 2024-10-07, closest to gliner 0.2.13's
+# own release) is what it was actually developed/tested against. Only
+# surfaced by actually running a real job against real downloaded weights,
+# not by any dependency-resolution or import-only check.
 gliner==0.2.13
-transformers==4.57.6
-sentencepiece==0.2.0
+transformers==4.45.2
+# sentencepiece==0.2.0's wheel only carries the older manylinux2014/2_17
+# tag; the wheelhouse now targets manylinux_2_28 (needed for onnxruntime
+# 1.17+, see below) and pip's cross-platform --platform matching does NOT
+# treat that as a superset of the older tag the way same-platform installs
+# do — 0.2.0 is invisible under that target. 0.2.2 ships a manylinux_2_28
+# wheel; same library, patch-level bump, no API change relevant here.
+sentencepiece==0.2.2
 py3langid==0.4.0
+# protobuf + tiktoken: NOT declared as hard deps by gliner/transformers, but
+# loading the gliner_multi-v2.1 tokenizer needs one of them (transformers'
+# convert_slow_tokenizer.py tries protobuf's SentencePieceExtractor first,
+# falls back to tiktoken) — without either, GLiNER.from_pretrained() fails
+# with "tiktoken is required to read a tiktoken file" even though nothing
+# in this requirements.txt looked like it was missing. Caught only by
+# actually loading the real weights, not by a dependency-resolution check.
+protobuf==5.29.3
+# tiktoken==0.8.0 has the same manylinux2014-only-tag issue as
+# sentencepiece above — 0.12.0 is the first release with a manylinux_2_28
+# wheel.
+tiktoken==0.12.0
+# onnxruntime: another undeclared-version transitive dep of gliner (it just
+# lists "onnxruntime" with no constraint at all). Left unpinned, the
+# wheelhouse download resolved onnxruntime==1.16.3, which predates real
+# numpy 2.x ABI support — crashes at import time with "_ARRAY_API not
+# found" / "numpy.core.multiarray failed to import" despite onnxruntime's
+# own metadata claiming numpy>=1.21.6 with no upper bound (metadata
+# compatibility != compiled binary ABI compatibility). Only surfaced when
+# the pipeline actually ran a real job on a real cluster, not at build time.
+onnxruntime==1.30.0
 
 # Multi-format document extraction — one line per branch of extract_text()
 # in mt_ner_all_formats.py.
