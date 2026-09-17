@@ -4,5 +4,37 @@ deploy/aws-cdk/node_modules
 __pycache__
 *.pyc
 .git
+.venv
 project.zip
 results/*.png
+
+# Exported image archives (`docker save ... | gzip > *.tar.gz`, e.g. from
+# deploy's export-to-S3 scripts) land in the repo root on the build machine.
+# Without this, rebuilding an image after one of these exists copies the
+# previous export's multi-GB tarball straight into the next image — this bit
+# spark-lean once already: an unrelated code fix triggered a rebuild while a
+# prior 837MB spark-lean.tar.gz + 3.0GB ner-translate-server.tar.gz were
+# still sitting in the build context, ballooning the "lean" image to 4.1GB.
+*.tar.gz
+
+# NOTE: wheelhouses (deploy/scripts/build_*_wheelhouse.sh output, under
+# wheels/<pipeline>/) and .deb bundles (deploy/scripts/build_*_debs.sh
+# output, under debs/<pipeline>/) are deliberately NOT excluded here.
+# .dockerignore applies to the whole build context for every image built
+# from this repo — excluding them here would also hide them from the
+# targeted bind-mounts in deploy/Dockerfile.ner_translate{,_server} that
+# need them to install this pipeline's deps. Instead, deploy/Dockerfile's
+# `lean` and `final` stages skip both directories themselves (see their
+# comments) when copying the app into those images, since those are the
+# only stages that must never see them.
+
+# Model weights are never baked into an image — they're mounted from the
+# filesystem at container start (see docs/MODEL_CONTAINER_ISOLATION.md
+# Option B). Without this, whatever happens to be sitting in models/weights/
+# at build time (e.g. downloaded for local Tier 0/1 testing) gets copied
+# into the image by `COPY . .`, silently bloating it by several GB and
+# defeating the whole point of keeping images to just deps/packages/CUDA
+# libs — this bit the very first AWS build of this image.
+models/weights/*
+!models/weights/.gitignore
+!models/weights/README.md

@@ -1,0 +1,117 @@
+# =============================================================================
+# ner_translate — waiter/kitchen split (docs/MODEL_CONTAINER_ISOLATION.md
+# Option B). Sibling to docker-compose.ner_translate.yml (the in-process
+# Option A version) — this one runs the Spark master/worker on the LEAN
+# image (no torch/CUDA at all, built from deploy/Dockerfile's `lean`
+# target) and adds a separate `ner-translate-server` ("kitchen") container
+# that owns 100% of the CUDA/torch/model dependencies and the loaded model
+# itself. Only one of these two compose files is meant to run at a time for
+# this pipeline — ports are offset from BOTH the shared cluster and the
+# Option A version so it can still come up alongside them if needed.
+#
+# Build (wheelhouse -> both images):
+#   docker build --target lean -t spark-lean:latest -f deploy/Dockerfile .
+#   bash deploy/scripts/build_ner_translate_wheelhouse.sh
+#   docker build -t ner-translate-server:latest -f deploy/Dockerfile.ner_translate_server .
+#
+# Run (prefer deploy/scripts/setup_ner_translate_server.sh over calling this
+# directly — it validates the on-disk layout first and gives a clear error
+# instead of containers coming up against an empty bind mount):
+#   docker compose -f deploy/docker-compose.ner_translate_server.yml up
+#
+# Submit a job (unchanged from the Option A version — submit_pipeline_job.py
+# auto-detects the service is reachable via manifest.json's "service_url"
+# and routes through it instead of loading the pipeline in-process; the
+# driver process itself runs on the LEAN image and never imports torch):
+#   docker exec -it ner-translate-master bash -c "python submit_pipeline_job.py --pipeline ner_translate --input /app/data/ner_samples --partitions 2"
+#
+# Cleanup:
+#   docker compose -f deploy/docker-compose.ner_translate_server.yml down
+#
+# NER_TRANSLATE_ROOT: all three services mount models/data/results from
+# `${NER_TRANSLATE_ROOT:-..}` rather than a bare `../models`. The default
+# (`..`, i.e. this file's parent directory) is correct ONLY if you run
+# `docker compose` from inside `deploy/` with `models/`/`data/` as its
+# siblings — get that wrong (wrong cwd, code and weights tarballs extracted
+# into different folders, etc.) and Docker silently bind-mounts an empty
+# directory instead of erroring, which then fails deep inside Python as
+# `ModuleNotFoundError: No module named 'models'` with no clue why. Setting
+# NER_TRANSLATE_ROOT to an absolute, verified path removes that ambiguity
+# entirely — see deploy/scripts/setup_ner_translate_server.sh, which does
+# exactly this after checking the path actually contains what's expected.
+# =============================================================================
+
+services:
+  ner-translate-server:
+    image: ner-translate-server:latest
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ner_translate_server
+    container_name: ner-translate-server
+    volumes:
+      - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
+      - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s  # model load (GLiNER + NLLB) takes longer than the default grace period
+
+  ner-translate-master:
+    image: spark-lean:latest
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: lean
+    container_name: ner-translate-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=ner-translate-master
+    volumes:
+      - ${NER_TRANSLATE_ROOT:-..}/results:/app/results
+      - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
+      - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
+    command: >
+      bash -c "
+        $$SPARK_HOME/sbin/start-master.sh -h ner-translate-master &&
+        tail -f $$SPARK_HOME/logs/*master*
+      "
+    ports:
+      - "7080:7077"
+      - "8083:8080"
+      - "4043:4040"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ner-translate-worker:
+    image: spark-lean:latest
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: lean
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://ner-translate-master:7077
+    volumes:
+      - ${NER_TRANSLATE_ROOT:-..}/results:/app/results
+      - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
+      - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
+    command: >
+      bash -c "
+        sleep 5 &&
+        $$SPARK_HOME/sbin/start-worker.sh spark://ner-translate-master:7077 -c 4 -m 4g &&
+        tail -f $$SPARK_HOME/logs/*worker*
+      "
+    deploy:
+      replicas: 1
+    depends_on:
+      ner-translate-master:
+        condition: service_healthy
+      ner-translate-server:
+        condition: service_healthy

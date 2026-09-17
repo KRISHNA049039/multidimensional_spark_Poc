@@ -66,6 +66,20 @@ SDIST_ONLY="odfpy ebooklib"
 sdist_pattern=$(echo "$SDIST_ONLY" | tr ' ' '|')
 SDIST_ONLY_DEPS="defusedxml lxml six"
 
+# huggingface-hub (pulled in transitively by gliner/transformers) requires
+# hf-xet on x86_64/amd64/arm64/aarch64 — NOT gated behind an extra, a real
+# Requires-Dist. `pip download`'s environment-marker evaluation for
+# platform_machine uses the HOST machine's platform.machine(), same as
+# `pip install` would — it's not overridden by --platform (that only
+# constrains wheel *tags*, not marker evaluation). Windows reports
+# "AMD64" for platform.machine(); the marker checks lowercase "amd64"/
+# "x86_64", so building this wheelhouse from Windows silently evaluates
+# the marker False and skips hf-xet entirely — pip install then fails
+# inside the (correctly-marked, Linux x86_64) container at build time,
+# not here. Force it in explicitly rather than relying on marker
+# evaluation to agree with the target platform.
+SDIST_ONLY_DEPS="$SDIST_ONLY_DEPS hf-xet"
+
 echo "Downloading ner_translate's dependency wheelhouse to $OUT ..."
 grep -viE "^($sdist_pattern)==" "$REQ_FILE" | grep -v '^#' | grep -v '^$' > /tmp/req_wheels_only.txt
 for dep in $SDIST_ONLY_DEPS; do echo "$dep" >> /tmp/req_wheels_only.txt; done

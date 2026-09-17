@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+# =============================================================================
+# ner_translate "kitchen" — the model-server half of the waiter/kitchen split
+# (docs/MODEL_CONTAINER_ISOLATION.md Option B). This image holds ONLY
+# dependencies, packages, and CUDA libs — no Spark, no Java (the kitchen
+# never talks to Spark directly, only answers HTTP requests from it), no
+# application code, no model weights. Code (serve.py, pipeline.py,
+# mt_ner_all_formats.py) and weights both come from the SAME mounted
+# `models/` volume the Spark side already mounts today — matching how this
+# repo already treats models/ as filesystem-provided, not baked in.
+#
+# Build order (wheelhouse first, same as the in-process ner-translate-worker
+# image):
+#   bash deploy/scripts/build_ner_translate_wheelhouse.sh
+#   docker build -t ner-translate-server:latest -f deploy/Dockerfile.ner_translate_server .
+#
+# Run (see deploy/docker-compose.ner_translate_server.yml for the full
+# waiter+kitchen wiring): mounts ../models:/app/models, then
+#   uvicorn models.pipelines.ner_translate.serve:app --host 0.0.0.0 --port 8000
+#
+# No nvidia/cuda base, same reasoning as deploy/Dockerfile: the cu126 torch
+# wheel below already bundles the CUDA runtime libs it needs; the NVIDIA
+# Container Toolkit provides driver-level GPU access (--gpus all)
+# independent of what the image itself carries.
+# =============================================================================
+FROM python:3.11-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+
+# Tesseract OCR + poppler (PDF rasterization) — required by extract_text()'s
+# PDF/image paths in mt_ner_all_formats.py. Language packs match that
+# file's OCR_LANG constant exactly.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-mar tesseract-ocr-hin tesseract-ocr-tel \
+        tesseract-ocr-tam tesseract-ocr-kan tesseract-ocr-ben tesseract-ocr-guj \
+        tesseract-ocr-pan tesseract-ocr-mal tesseract-ocr-urd \
+        poppler-utils && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# torch/CUDA — same version as the Spark-side AI base (deploy/Dockerfile's
+# `final` stage) so results match whatever the in-process path would have
+# produced; not actually required to match since this image never talks to
+# that one, but keeping them in sync avoids "works differently on the
+# kitchen than it used to in-process" surprises during the transition.
+RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu126
+
+# This pipeline's own deps — from the LOCAL wheelhouse, --no-index, same
+# reproducibility reasoning as deploy/Dockerfile.ner_translate (a pinned
+# version disappearing from the live index shouldn't silently resolve to a
+# different one — see docs/CHANGELOG_20260913.md).
+#
+# --mount=type=bind (not COPY) for the wheelhouse: a bind mount is only
+# visible to this RUN step and is never committed as an image layer. A plain
+# `COPY wheels/... + rm -rf` looks equivalent but isn't — the COPY layer's
+# bytes are still shipped in `docker save`/`docker push` even after a later
+# RUN deletes them, since layers are additive. That silently added ~3GB of
+# dead weight (the whole wheelhouse, including its own torch/CUDA wheels)
+# on top of the torch actually installed above.
+COPY models/pipelines/ner_translate/requirements.txt /tmp/ner_translate_requirements.txt
+RUN --mount=type=bind,source=wheels/ner_translate,target=/tmp/wheels \
+    pip install --no-cache-dir --no-index --find-links=/tmp/wheels -r /tmp/ner_translate_requirements.txt
+
+EXPOSE 8000
+CMD ["uvicorn", "models.pipelines.ner_translate.serve:app", "--host", "0.0.0.0", "--port", "8000"]

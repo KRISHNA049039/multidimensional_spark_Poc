@@ -17,7 +17,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from inference.cluster_engine import create_cluster_session
-from inference.text_pipeline_engine import run_text_pipeline_job
+from inference.text_pipeline_engine import run_text_pipeline_job, run_text_pipeline_job_via_service
 
 MANIFEST_PATH = os.path.join("models", "pipelines", "manifest.json")
 
@@ -34,7 +34,20 @@ def _host_resolvable(spark_url: str, timeout: float = 1.0) -> bool:
     cluster's Docker network, and fall back to local[4] everywhere else
     (bare local dev, a shell on the host, the shared cluster's containers)
     without the job just failing to connect.
+
+    Uses socket.setdefaulttimeout() to bound the DNS lookup — but that's a
+    GLOBAL, process-wide default, not scoped to this one call. Left set,
+    it silently poisons every socket created afterward for the rest of the
+    process — including py4j's own Python<->JVM gateway socket, whose reads
+    during real standalone-cluster SparkContext initialization can
+    legitimately take longer than this function's 1s default. Manifested
+    as SparkContext() hanging then failing with a raw socket
+    `TimeoutError: timed out` deep inside py4j, with no obvious connection
+    to this function at all — restoring the previous default afterward
+    (whatever it was, usually None/blocking) is what actually matters here,
+    not the specific 1s value.
     """
+    previous_timeout = socket.getdefaulttimeout()
     try:
         host, port = urlparse(spark_url).hostname, urlparse(spark_url).port
         if not host:
@@ -44,6 +57,8 @@ def _host_resolvable(spark_url: str, timeout: float = 1.0) -> bool:
         return True
     except OSError:
         return False
+    finally:
+        socket.setdefaulttimeout(previous_timeout)
 
 
 def _resolve_master_url(cli_master: str | None, manifest_entry: dict) -> str | None:
@@ -85,6 +100,13 @@ def main():
     parser.add_argument("--master", default=None,
                          help="Spark master URL override (default: this pipeline's manifest "
                               "master_url if set, else env var, else local[4])")
+    parser.add_argument("--driver-memory", default="6g",
+                         help="Spark driver JVM heap (default 6g, sized for a real cluster "
+                              "node — lower this on a small/shared instance, e.g. a single "
+                              "g4dn.xlarge running master+worker+kitchen together, where the "
+                              "default can starve the JVM gateway during SparkContext init)")
+    parser.add_argument("--executor-memory", default="4g",
+                         help="Spark executor JVM heap (default 4g, see --driver-memory)")
     args = parser.parse_args()
 
     manifest = _load_manifest()
@@ -92,19 +114,44 @@ def main():
         available = ", ".join(sorted(manifest.keys()))
         raise SystemExit(f"Unknown pipeline '{args.pipeline}'. Available: {available}")
 
-    mod = importlib.import_module(manifest[args.pipeline]["module"])
-
     paths = _collect_files(args.input)
     if not paths:
         raise SystemExit(f"No input files found at {args.input}")
 
     master_url = _resolve_master_url(args.master, manifest[args.pipeline])
-    spark = create_cluster_session(app_name=f"pipeline-{args.pipeline}", master_url=master_url)
+    spark = create_cluster_session(
+        app_name=f"pipeline-{args.pipeline}", master_url=master_url,
+        driver_memory=args.driver_memory, executor_memory=args.executor_memory,
+    )
+
+    # waiter/kitchen split (docs/MODEL_CONTAINER_ISOLATION.md Option B): if
+    # this pipeline has a "service_url" in the manifest AND that host
+    # actually resolves (same pattern _resolve_master_url already uses for
+    # master_url — lets the identical command work unmodified both in plain
+    # local dev, where the service doesn't exist, and inside the
+    # server-enabled compose cluster, where it does), route through the
+    # HTTP model server instead of importing the pipeline module in-process.
+    # Deliberately NOT importing the pipeline module until we know we need
+    # it (the else branch below): on the lean/waiter image the module's own
+    # import chain pulls in torch/transformers, which that image doesn't
+    # have installed on purpose — importing it unconditionally here would
+    # crash the driver before it ever got a chance to use the service path.
+    service_url = manifest[args.pipeline].get("service_url")
+    use_service = bool(service_url) and _host_resolvable(service_url)
+    print(f"[submit_pipeline_job] execution path: "
+          f"{'HTTP model server at ' + service_url if use_service else 'in-process (mod.load/mod.run)'}")
     try:
-        result = run_text_pipeline_job(
-            spark, paths, mod.load, mod.run,
-            num_partitions=args.partitions,
-        )
+        if use_service:
+            result = run_text_pipeline_job_via_service(
+                spark, paths, service_url,
+                num_partitions=args.partitions,
+            )
+        else:
+            mod = importlib.import_module(manifest[args.pipeline]["module"])
+            result = run_text_pipeline_job(
+                spark, paths, mod.load, mod.run,
+                num_partitions=args.partitions,
+            )
     finally:
         spark.stop()
 

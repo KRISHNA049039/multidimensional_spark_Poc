@@ -93,3 +93,94 @@ def run_text_pipeline_job(
         ],
         "results": merged_results,
     }
+
+
+def run_text_pipeline_job_via_service(
+    spark,
+    file_paths: List[str],
+    service_url: str,
+    num_partitions: int = 4,
+    labels: Optional[List[str]] = None,
+    timeout: float = 600.0,
+) -> Dict:
+    """
+    Sibling to run_text_pipeline_job() for the "waiter/kitchen" split (see
+    docs/MODEL_CONTAINER_ISOLATION.md Option B) — instead of importing a
+    pipeline module and calling load()/run() inside the Spark executor
+    process (which requires torch/CUDA/the pipeline's own deps to be
+    installed in the SAME Python environment Spark uses), each partition
+    just POSTs its file paths to an already-running model server and gets
+    back the identical {filename: result} shape run_fn() always returned.
+
+    Requires: the executor's own Python environment needs nothing but
+    `requests` — no torch, no transformers, no model-specific deps at all.
+    Requires: file_paths must be readable from the SAME mounted path on
+    the model-server container as on the Spark worker (e.g. both mount
+    the same host data/ directory to /app/data) — paths are sent as-is,
+    not the file contents, matching how the in-process version already
+    expects absolute paths on a real cluster (see submit_pipeline_job.py's
+    own note on this).
+    """
+    sc = spark.sparkContext
+    bc_service_url = sc.broadcast(service_url)
+    bc_labels = sc.broadcast(labels)
+    bc_timeout = sc.broadcast(timeout)
+
+    effective_partitions = max(1, min(num_partitions, len(file_paths)))
+    paths_rdd = sc.parallelize(file_paths, effective_partitions)
+
+    def process_partition(iterator):
+        # Imported here, not at module/outer-function scope: this closure
+        # is pickled and shipped to a separate executor process, which
+        # re-imports its own free variables on unpickling — importing
+        # inside the closure itself is the standard, unambiguous way to
+        # guarantee `requests` is resolved fresh in that process rather
+        # than relying on however cloudpickle happens to serialize a
+        # module reference captured from the driver's enclosing scope.
+        import requests
+
+        paths = list(iterator)
+        if not paths:
+            return
+        hostname = socket.gethostname()
+
+        call_start = time.time()
+        resp = requests.post(
+            bc_service_url.value.rstrip("/") + "/predict",
+            json={"paths": paths, "labels": bc_labels.value},
+            timeout=bc_timeout.value,
+        )
+        resp.raise_for_status()
+        results = resp.json()
+        call_time = time.time() - call_start
+
+        yield {
+            "hostname": hostname,
+            "pid": os.getpid(),
+            "num_paths": len(paths),
+            "load_time_sec": 0.0,  # no per-executor model load in this path
+            "run_time_sec": round(call_time, 3),
+            "results": results,
+        }
+
+    start = time.time()
+    partition_results = paths_rdd.mapPartitions(process_partition).collect()
+    elapsed = time.time() - start
+
+    merged_results: Dict[str, Any] = {}
+    for pr in partition_results:
+        merged_results.update(pr["results"])
+
+    bc_service_url.unpersist()
+    bc_labels.unpersist()
+    bc_timeout.unpersist()
+
+    return {
+        "elapsed_time": round(elapsed, 4),
+        "num_files": len(file_paths),
+        "num_partitions": effective_partitions,
+        "partition_details": [
+            {k: v for k, v in pr.items() if k != "results"} for pr in partition_results
+        ],
+        "results": merged_results,
+    }

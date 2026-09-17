@@ -1,0 +1,11 @@
+# Force LF regardless of platform/core.autocrlf for anything executed via a
+# Linux shebang (inside Docker builds, on EC2, or on an airgapped Linux
+# target) — a Windows checkout with core.autocrlf=true otherwise silently
+# rewrites these to CRLF, which breaks the shebang line at exec time
+# ("<script>: not found", not an obviously-line-ending-related error).
+# Found via a real failure: deploy/scripts/build_and_test_ner_translate_gpu.sh
+# uploaded from Windows to an EC2 instance and invoked directly (not via
+# `bash script.sh`) failed with exactly this error.
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.dockerfile text eol=lf

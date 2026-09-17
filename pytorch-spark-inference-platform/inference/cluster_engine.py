@@ -27,13 +27,20 @@ Architecture:
   Driver collects results → aggregates → reports
 """
 
+# Defers evaluation of type hints (torch.nn.Module, np.ndarray below) to
+# strings instead of real objects at function-definition time — lets
+# create_cluster_session() (the only thing the lean waiter/kitchen-split
+# image needs from this module, see deploy/Dockerfile's `lean` target)
+# import cleanly without torch/numpy installed. The tensor-plugin benchmark
+# functions below (_serialize_model, run_cluster_inference) still import
+# torch/numpy themselves, lazily, right where they're actually used.
+from __future__ import annotations
+
 import sys
 import os
 import time
 import io
 import json
-import numpy as np
-import torch
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -87,6 +94,7 @@ def create_cluster_session(app_name="ClusterBenchmark", master_url=None,
 
 
 def _serialize_model(model: torch.nn.Module) -> bytes:
+    import torch
     buf = io.BytesIO()
     torch.save(model.state_dict(), buf)
     return buf.getvalue()
@@ -139,6 +147,9 @@ def run_cluster_inference(
     Returns:
         Detailed results dict with per-partition timing
     """
+    import numpy as np  # noqa: F401 — re-imported per-call, see module docstring note
+    import torch  # noqa: F401
+
     sc = spark.sparkContext
 
     # Broadcast model weights (~75MB, same for all executors)

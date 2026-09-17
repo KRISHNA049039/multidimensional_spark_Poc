@@ -30,6 +30,11 @@ container per task." It means one of two real architectures:
 > **Status: implemented for `ner_translate`, as of 2026-09-14.** See
 > `docs/CHANGELOG_20260914.md` for the concrete diff. The pattern below is
 > now real, not a proposal — follow it for the next pipeline you add.
+> **Airgapped dependency updates without re-shipping the image, as of
+> 2026-09-17**: see `docs/NER_TRANSLATE_OFFLINE_DEPENDENCY_UPDATES.md` — if
+> a target machine already has the base image (`multi-model-inference:latest`),
+> a small wheelhouse + `.deb` bundle + code transfer is enough to build the
+> final per-model image locally, no new multi-GB image needed.
 
 Instead of one `multi-model-inference:latest` image running everything,
 build a separate worker image per model (or per model family), each with
@@ -58,6 +63,10 @@ separate small Spark clusters, which is more infrastructure to manage than
 today's single cluster.
 
 ## Option B — Model runs behind an HTTP endpoint, Spark executors become thin clients
+
+> **Status: implemented and verified end-to-end for `ner_translate`, as of
+> 2026-09-17.** See `docs/WAITER_KITCHEN_NER_TRANSLATE_DEPLOYMENT.md` for
+> the concrete architecture, image sizes, and full airgapped setup flow.
 
 Instead of loading the model directly inside `mapPartitions`, the executor
 sends each batch over the network to a small, separate model-serving

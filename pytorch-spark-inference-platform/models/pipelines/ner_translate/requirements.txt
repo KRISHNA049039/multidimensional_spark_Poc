@@ -1,11 +1,25 @@
 # ner_translate pipeline — extra dependencies on top of the base image's
 # core requirements.txt (which already provides torch==2.6.0, numpy==2.1.3,
-# pyarrow, pandas, etc. — do NOT repin those here).
+# pandas, etc. — do NOT repin those here).
 #
 # This file is the single source of truth for this pipeline's deps: it's
-# installed by deploy/Dockerfile.ner_translate for the cluster image, and is
-# what a local (non-Docker) developer should `pip install -r` before running
-# `python submit_pipeline_job.py --pipeline ner_translate` against local[4].
+# installed by deploy/Dockerfile.ner_translate for the in-process cluster
+# image (FROM the base image — see docs/MODEL_CONTAINER_ISOLATION.md
+# Option A), by deploy/Dockerfile.ner_translate_server for the standalone
+# "kitchen" image (Option B — does NOT FROM the base image, so anything
+# the base would normally provide for free must be listed here explicitly),
+# and is what a local (non-Docker) developer should `pip install -r` before
+# running `python submit_pipeline_job.py --pipeline ner_translate` against
+# local[4].
+#
+# pyarrow IS repinned here (unlike torch/numpy/pandas above) even though
+# the in-process image also gets it for free from the base: it's a real,
+# direct dependency of mt_ner_all_formats.py itself (imported before torch
+# to force Arrow's runtime to load first — avoids an OpenMP/MKL symbol
+# clash), not just an incidental transitive one, and the standalone kitchen
+# image has no base image to inherit it from at all. Discovered when the
+# kitchen container crashed on startup with ModuleNotFoundError: pyarrow.
+pyarrow==18.1.0
 #
 # transformers capped <5.0: the NLLB tokenizer/generate() calls in
 # mt_ner_all_formats.py target the 4.x API; transformers 5.x is a breaking
@@ -69,3 +83,10 @@ ebooklib==0.18        # .epub
 beautifulsoup4==4.12.3  # .html/.htm, .epub
 striprtf==0.0.28      # .rtf
 xlrd==2.0.1           # legacy .xls
+
+# serve.py — the model-server ("kitchen") HTTP wrapper around load()/run(),
+# see docs/MODEL_CONTAINER_ISOLATION.md Option B. Not needed by a plain
+# local/Docker driver run (submit_pipeline_job.py --pipeline ner_translate),
+# only by deploy/Dockerfile.ner_translate_server's container.
+fastapi==0.121.2
+uvicorn==0.38.0

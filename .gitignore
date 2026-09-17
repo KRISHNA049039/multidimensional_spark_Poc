@@ -18,3 +18,7 @@ results/raw_results.json
 # automatically since it doesn't match *.whl.
 wheels/
 **/wheels-hotfix/**/*.whl
+
+# .deb bundles (deploy/scripts/build_*_debs.sh output) — same reasoning as
+# wheels/ above: regenerable offline-install artifacts, not source of truth.
+debs/
