@@ -8,6 +8,14 @@
 #   docker build -t multi-model-inference:latest -f deploy/Dockerfile .
 #   docker compose -f deploy/docker-compose.ner_translate.yml build
 #
+# ...or, if you already have a verified image (e.g. built+tested on a GPU
+# instance elsewhere and exported — see docs/TESTING_BEFORE_EXPORT.md),
+# skip building entirely:
+#   docker load -i ner-translate-worker.tar.gz
+# `image:` below is what makes that work — compose uses the already-loaded
+# ner-translate-worker:latest directly instead of rebuilding, as long as an
+# image with that exact tag already exists locally.
+#
 # Run:
 #   docker compose -f deploy/docker-compose.ner_translate.yml up
 #
@@ -37,6 +45,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.ner_translate
+    image: ner-translate-worker:latest
     container_name: ner-translate-master
     environment:
       - SPARK_MODE=master
@@ -63,10 +72,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # -c 4 (not 2) below: create_cluster_session() (inference/cluster_engine.py)
+  # defaults executor_cores=4. A worker offering fewer cores than an
+  # executor demands can never satisfy that resource request — Spark
+  # standalone doesn't error when that happens, it just waits forever with
+  # 0 running tasks (found on a real GPU run: "Stage 0: 0/2" hanging
+  # indefinitely, no crash, no error message). Give Docker Desktop at least
+  # 4 CPUs / 8GB in its own resource settings for this to actually work.
   ner-translate-worker:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.ner_translate
+    image: ner-translate-worker:latest
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://ner-translate-master:7077
@@ -80,7 +97,7 @@ services:
       bash -c "
         sleep 5 &&
         /usr/local/bin/apply_wheels_hotfix.sh &&
-        $$SPARK_HOME/sbin/start-worker.sh spark://ner-translate-master:7077 -c 2 -m 4g &&
+        $$SPARK_HOME/sbin/start-worker.sh spark://ner-translate-master:7077 -c 4 -m 8g &&
         tail -f $$SPARK_HOME/logs/*worker*
       "
     deploy:
