@@ -56,6 +56,17 @@ services:
       - ../data:/app/data
       - ../models:/app/models
       - ../wheels-hotfix/ner_translate:/wheels-hotfix
+      # Code mount — WITHOUT this, the actual Python code (inference/,
+      # submit_*.py) comes entirely from whatever was `COPY . .`'d into
+      # multi-model-inference:latest at ITS build time, which can be
+      # months stale on a long-lived airgapped image. models/ was already
+      # mounted above (covers models/pipelines/ner_translate/'s own code),
+      # but inference/ and the entry-point scripts weren't — a code-only
+      # update (new file, bug fix) previously required rebuilding the base
+      # image just to pick it up. This mount means it doesn't.
+      - ../inference:/app/inference
+      - ../submit_pipeline_job.py:/app/submit_pipeline_job.py
+      - ../submit_job.py:/app/submit_job.py
     command: >
       bash -c "
         /usr/local/bin/apply_wheels_hotfix.sh &&
@@ -93,6 +104,10 @@ services:
       - ../data:/app/data
       - ../models:/app/models
       - ../wheels-hotfix/ner_translate:/wheels-hotfix
+      # See the master service's identical mount above for why this exists.
+      - ../inference:/app/inference
+      - ../submit_pipeline_job.py:/app/submit_pipeline_job.py
+      - ../submit_job.py:/app/submit_job.py
     command: >
       bash -c "
         sleep 5 &&

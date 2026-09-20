@@ -88,6 +88,12 @@ services:
       - ${NER_TRANSLATE_ROOT:-..}/results:/app/results
       - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
       - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
+      # Same reasoning as docker-compose.ner_translate.yml's identical
+      # mount: without this, a code-only update needs spark-lean:latest
+      # rebuilt just to pick it up, even though nothing about its
+      # dependencies changed.
+      - ${NER_TRANSLATE_ROOT:-..}/inference:/app/inference
+      - ${NER_TRANSLATE_ROOT:-..}/submit_pipeline_job.py:/app/submit_pipeline_job.py
     command: >
       bash -c "
         $$SPARK_HOME/sbin/start-master.sh -h ner-translate-master &&
@@ -116,6 +122,8 @@ services:
       - ${NER_TRANSLATE_ROOT:-..}/results:/app/results
       - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
       - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
+      - ${NER_TRANSLATE_ROOT:-..}/inference:/app/inference
+      - ${NER_TRANSLATE_ROOT:-..}/submit_pipeline_job.py:/app/submit_pipeline_job.py
     command: >
       bash -c "
         sleep 5 &&
