@@ -48,9 +48,23 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.ner_translate_server
     container_name: ner-translate-server
+    environment:
+      # NVIDIA MPS (docs/CONCURRENCY_AND_UDF_ENHANCEMENTS.md §4) — lets
+      # this container share the physical GPU efficiently with other
+      # processes (e.g. a second concurrent kitchen, or future concurrent
+      # Spark tasks) via a host-level MPS daemon instead of the driver
+      # crudely time-slicing separate CUDA contexts. No-op if the host
+      # daemon isn't running (torch just talks to the GPU directly, same
+      # as today) — this is additive, not a hard dependency.
+      - CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
+      - CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-mps-log
     volumes:
       - ${NER_TRANSLATE_ROOT:-..}/models:/app/models
       - ${NER_TRANSLATE_ROOT:-..}/data:/app/data
+      # Shared with the host's `nvidia-cuda-mps-control -d` daemon (see
+      # deploy/scripts/start_mps.sh) — same directories referenced above.
+      - /tmp/nvidia-mps:/tmp/nvidia-mps
+      - /tmp/nvidia-mps-log:/tmp/nvidia-mps-log
     ports:
       - "8001:8000"
     healthcheck:

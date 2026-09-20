@@ -54,6 +54,10 @@ def main():
     parser.add_argument("--partitions", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--master", default=None, help="Spark master URL override (default: env or local[4])")
+    parser.add_argument("--engine", default="rdd", choices=["rdd", "udf"],
+                         help="rdd (default, unchanged): cluster_engine.py's mapPartitions path. "
+                              "udf: Pandas-UDF path (docs/CONCURRENCY_AND_UDF_ENHANCEMENTS.md §1) — "
+                              "opt-in, only affects this run, no other behavior changes.")
     args = parser.parse_args()
 
     registry = get_default_registry()
@@ -74,14 +78,25 @@ def main():
 
     spark = create_cluster_session(app_name=f"byom-{args.model}", master_url=args.master)
     try:
-        result = run_cluster_inference(
-            spark,
-            data={args.model: data_arr},
-            models={args.model: model},
-            num_partitions=args.partitions,
-            batch_size=args.batch_size,
-            device_mode=args.mode,
-        )
+        if args.engine == "udf":
+            from inference.cluster_engine_udf import run_cluster_inference_udf
+            result = run_cluster_inference_udf(
+                spark,
+                data={args.model: data_arr},
+                models={args.model: model},
+                num_partitions=args.partitions,
+                batch_size=args.batch_size,
+                device_mode=args.mode,
+            )
+        else:
+            result = run_cluster_inference(
+                spark,
+                data={args.model: data_arr},
+                models={args.model: model},
+                num_partitions=args.partitions,
+                batch_size=args.batch_size,
+                device_mode=args.mode,
+            )
     finally:
         spark.stop()
 

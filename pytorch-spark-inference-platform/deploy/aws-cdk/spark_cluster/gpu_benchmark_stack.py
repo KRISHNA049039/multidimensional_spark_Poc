@@ -93,7 +93,11 @@ class GpuBenchmarkStack(Stack):
             user_data=user_data,
             block_devices=[ec2.BlockDevice(
                 device_name="/dev/sda1",
-                volume=ec2.BlockDeviceVolume.ebs(150,
+                # 300GB, not 150 — a real prior run filled 150GB building
+                # multiple images (base + lean + kitchen + worker) plus
+                # wheelhouses/deb bundles side by side and needed a live
+                # resize mid-session. Sized correctly up front this time.
+                volume=ec2.BlockDeviceVolume.ebs(300,
                     volume_type=ec2.EbsDeviceVolumeType.GP3),
             )],
             associate_public_ip_address=True,

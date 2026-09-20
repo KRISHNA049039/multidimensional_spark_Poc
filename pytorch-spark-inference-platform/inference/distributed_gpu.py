@@ -2,7 +2,12 @@
 Mode 1: Distributed GPU Inference (Spark + Multi-GPU Cluster)
 
 Each Spark executor runs on a separate machine/GPU. All 10 models are loaded
-on each executor's GPU via CUDA streams for parallel inference.
+on each executor's GPU and dispatched across their own CUDA streams, so the
+GPU can genuinely overlap independent models' kernels instead of running
+them strictly one after another (see run_concurrent_on_streams() below and
+docs/CONCURRENCY_AND_UDF_ENHANCEMENTS.md §3 — this docstring used to claim
+stream-based concurrency before any torch.cuda.Stream() actually existed in
+this file; fixed 2026-09-19, not just re-worded).
 
 Architecture:
   Driver → broadcast model weights → partition data → distribute to executors
@@ -95,6 +100,137 @@ def _deserialize_model(model_class, model_bytes: bytes, device: str = "cpu") -> 
     model = model.to(device)
     model.eval()
     return model
+
+
+def run_models_on_streams(loaded_models: Dict[str, torch.nn.Module],
+                           data_chunk: Dict[str, np.ndarray],
+                           batch_size: int, device: str):
+    """
+    Dispatch each model's batches on its own CUDA stream, so independent
+    models' kernels can genuinely overlap on the GPU instead of the default
+    stream serializing them — the concurrency docs/CONCURRENCY_AND_UDF_
+    ENHANCEMENTS.md §3 calls out as claimed-but-missing until now.
+
+    The critical part: this function does NOT synchronize between models.
+    Every model's forward passes get issued to their own stream back-to-
+    back, and only one torch.cuda.synchronize() happens at the very end —
+    synchronizing after each model (the "obvious" way to time each one)
+    would block the CPU thread on that model's completion before the next
+    model's work is even issued, which serializes the GPU work again and
+    defeats the entire point of using separate streams.
+
+    Per-model timing instead uses torch.cuda.Event(enable_timing=True)
+    pairs recorded on each model's own stream — accurate GPU-side elapsed
+    time without any blocking wait until the final synchronize() call.
+
+    On CPU (device != "cuda"), streams don't apply — falls back to the
+    same sequential loop as before, timed with wall-clock time.
+
+    Returns: {model_name: {"samples_processed", "inference_time_sec",
+                            "throughput", "input_shape", "output_shape",
+                            "batches"}} — same shape run_distributed_gpu_
+              inference already returns per model, so this is a drop-in
+              replacement for the sequential loop, not a new result shape.
+    """
+    use_streams = device == "cuda" and torch.cuda.is_available()
+    model_results = {}
+
+    if not use_streams:
+        for model_name, model in loaded_models.items():
+            if model_name not in data_chunk:
+                continue
+            model_results[model_name] = _run_one_model_cpu_timed(
+                model, data_chunk[model_name], batch_size, device)
+        return model_results
+
+    # --- CUDA path: one stream + one event pair per model ---
+    streams, start_events, end_events = {}, {}, {}
+    meta = {}  # model_name -> {"input_shape", "output_shape", "samples", "batches"}
+
+    for model_name, model in loaded_models.items():
+        if model_name not in data_chunk:
+            continue
+        chunk = data_chunk[model_name]
+        n_samples = len(chunk)
+        input_shape = list(chunk.shape[1:]) if len(chunk.shape) > 1 else [chunk.shape[-1] if len(chunk.shape) == 1 else 0]
+
+        stream = torch.cuda.Stream()
+        start_evt = torch.cuda.Event(enable_timing=True)
+        end_evt = torch.cuda.Event(enable_timing=True)
+        streams[model_name] = stream
+        start_events[model_name] = start_evt
+        end_events[model_name] = end_evt
+        output_shape = None
+        num_outputs = 0
+        num_batches = 0
+
+        with torch.cuda.stream(stream):
+            start_evt.record(stream)
+            with torch.no_grad():
+                for start in range(0, n_samples, batch_size):
+                    end = min(start + batch_size, n_samples)
+                    batch_tensor = torch.from_numpy(chunk[start:end]).float().to(device, non_blocking=True)
+                    output = model(batch_tensor)
+                    if output_shape is None:
+                        output_shape = list(output.shape[1:]) if len(output.shape) > 1 else [output.shape[0]]
+                    num_outputs += (end - start)
+                    num_batches += 1
+            end_evt.record(stream)
+
+        meta[model_name] = {
+            "input_shape": input_shape, "output_shape": output_shape,
+            "samples": num_outputs, "batches": num_batches,
+        }
+
+    # Single synchronize point — every stream's work is issued by now;
+    # this is what lets the GPU have actually overlapped them, unlike
+    # synchronizing after each model above would have.
+    torch.cuda.synchronize()
+
+    for model_name, m in meta.items():
+        elapsed_ms = start_events[model_name].elapsed_time(end_events[model_name])
+        elapsed_sec = elapsed_ms / 1000.0
+        model_results[model_name] = {
+            "samples_processed": m["samples"],
+            "inference_time_sec": round(elapsed_sec, 4),
+            "throughput": round(m["samples"] / elapsed_sec, 1) if elapsed_sec > 0 else 0,
+            "input_shape": m["input_shape"],
+            "output_shape": m["output_shape"],
+            "batches": m["batches"],
+        }
+    return model_results
+
+
+def _run_one_model_cpu_timed(model, chunk, batch_size, device):
+    """Sequential fallback for CPU (or no CUDA) — same shape/behavior the
+    original sequential loop in run_distributed_gpu_inference() had."""
+    import time as _time
+    n_samples = len(chunk)
+    input_shape = list(chunk.shape[1:]) if len(chunk.shape) > 1 else [chunk.shape[-1] if len(chunk.shape) == 1 else 0]
+    output_shape = None
+    num_outputs = 0
+    num_batches = 0
+
+    model_start = _time.time()
+    with torch.no_grad():
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            batch_tensor = torch.from_numpy(chunk[start:end]).float().to(device)
+            output = model(batch_tensor)
+            if output_shape is None:
+                output_shape = list(output.shape[1:]) if len(output.shape) > 1 else [output.shape[0]]
+            num_outputs += (end - start)
+            num_batches += 1
+    elapsed = _time.time() - model_start
+
+    return {
+        "samples_processed": num_outputs,
+        "inference_time_sec": round(elapsed, 4),
+        "throughput": round(num_outputs / elapsed, 1) if elapsed > 0 else 0,
+        "input_shape": input_shape,
+        "output_shape": output_shape,
+        "batches": num_batches,
+    }
 
 
 def run_distributed_gpu_inference(
@@ -223,39 +359,13 @@ def run_distributed_gpu_inference(
         model_load_time = _time.time() - model_load_start
 
         bs = bc_batch_size.value
-        model_results = {}
         total_inference_start = _time.time()
 
-        for model_name, model in loaded_models.items():
-            if model_name not in data_chunk:
-                continue
-
-            chunk = data_chunk[model_name]
-            n_samples = len(chunk)
-            num_outputs = 0
-            input_shape = list(chunk.shape[1:]) if len(chunk.shape) > 1 else [chunk.shape[-1] if len(chunk.shape) == 1 else 0]
-            output_shape = None
-
-            model_start = _time.time()
-            with torch.no_grad():
-                for start in range(0, n_samples, bs):
-                    end = min(start + bs, n_samples)
-                    batch_np = chunk[start:end]
-                    batch_tensor = torch.from_numpy(batch_np).float().to(device)
-                    output = model(batch_tensor)
-                    if output_shape is None:
-                        output_shape = list(output.shape[1:]) if len(output.shape) > 1 else [output.shape[0]]
-                    num_outputs += (end - start)
-            model_elapsed = _time.time() - model_start
-
-            model_results[model_name] = {
-                "samples_processed": num_outputs,
-                "inference_time_sec": round(model_elapsed, 4),
-                "throughput": round(num_outputs / model_elapsed, 1) if model_elapsed > 0 else 0,
-                "input_shape": input_shape,
-                "output_shape": output_shape,
-                "batches": (n_samples + bs - 1) // bs,
-            }
+        # Dispatches every model's batches on its own CUDA stream (falls
+        # back to sequential CPU timing when no GPU) — see
+        # run_models_on_streams()'s own docstring for why this can't just
+        # synchronize after each model and still call itself concurrent.
+        model_results = run_models_on_streams(loaded_models, data_chunk, bs, device)
 
         total_inference_time = _time.time() - total_inference_start
         total_samples = sum(r["samples_processed"] for r in model_results.values())

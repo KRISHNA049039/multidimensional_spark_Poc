@@ -49,8 +49,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def create_cluster_session(app_name="ClusterBenchmark", master_url=None,
                            executor_memory="4g", driver_memory="6g",
-                           executor_cores=4, max_message_size=512):
-    """Create SparkSession optimized for cluster inference."""
+                           executor_cores=4, max_message_size=512,
+                           gpu_aware_scheduling=False):
+    """Create SparkSession optimized for cluster inference.
+
+    gpu_aware_scheduling: opt-in, default False. When True, tells Spark's
+    own scheduler that executors have a GPU and how many concurrent tasks
+    may share it (docs/CONCURRENCY_AND_UDF_ENHANCEMENTS.md §5) — only
+    meaningful for a session where Spark itself loads models onto a GPU
+    (the tensor-plugin path, run_cluster_inference() below). Left False by
+    default because it's actively WRONG for the waiter/kitchen split
+    (docs/WAITER_KITCHEN_NER_TRANSLATE_DEPLOYMENT.md): spark-lean's
+    executors never touch a GPU at all (the kitchen does, over HTTP), so
+    asking Spark to schedule around a GPU resource that doesn't exist in
+    that process would just be a broken config, not a no-op.
+    """
     from pyspark.sql import SparkSession
 
     if master_url is None:
@@ -87,6 +100,19 @@ def create_cluster_session(app_name="ClusterBenchmark", master_url=None,
             .config("spark.executorEnv.LD_LIBRARY_PATH",
                     "/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu")
         )
+
+        if gpu_aware_scheduling:
+            # Fractional (0.5) so 2 concurrent tasks can share one GPU —
+            # tune to match how many concurrent models/streams a single
+            # GPU can actually hold (docs/CONCURRENCY_AND_UDF_ENHANCEMENTS.md
+            # §5). Discovery script is volume-mounted (deploy/ already is
+            # in every compose file), never baked into an image.
+            builder = (builder
+                .config("spark.executor.resource.gpu.amount", "1")
+                .config("spark.task.resource.gpu.amount", "0.5")
+                .config("spark.worker.resource.gpu.discoveryScript",
+                        "/app/deploy/scripts/gpu_discovery.sh")
+            )
 
     spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
